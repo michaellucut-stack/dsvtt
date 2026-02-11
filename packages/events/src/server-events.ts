@@ -10,6 +10,12 @@ import type {
   MapLoadedPayload,
   MapUpdatedPayload,
   NpcActionBroadcastPayload,
+  NpcCreatedPayload,
+  NpcUpdatedPayload,
+  NpcDeletedPayload,
+  NoteCreatedPayload,
+  NoteUpdatedPayload,
+  NoteDeletedPayload,
   RoomCreatedPayload,
   RoomJoinedPayload,
   RoomLeftPayload,
@@ -59,6 +65,14 @@ export interface ServerToClientEvents {
 
   // NPC events
   NPC_ACTION_BROADCAST: (payload: NpcActionBroadcastPayload) => void;
+  NPC_CREATED: (payload: NpcCreatedPayload) => void;
+  NPC_UPDATED: (payload: NpcUpdatedPayload) => void;
+  NPC_DELETED: (payload: NpcDeletedPayload) => void;
+
+  // Shared note events
+  NOTE_CREATED: (payload: NoteCreatedPayload) => void;
+  NOTE_UPDATED: (payload: NoteUpdatedPayload) => void;
+  NOTE_DELETED: (payload: NoteDeletedPayload) => void;
 
   // Map events
   MAP_LOADED: (payload: MapLoadedPayload) => void;

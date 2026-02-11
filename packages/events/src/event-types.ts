@@ -273,6 +273,70 @@ export interface NpcActionBroadcastPayload {
   data: Record<string, unknown>;
 }
 
+/** Server broadcast when an NPC is created. */
+export interface NpcCreatedPayload {
+  sessionId: string;
+  npc: {
+    id: string;
+    name: string;
+    stats: Record<string, unknown>;
+    notes: string | null;
+    tokenId: string | null;
+  };
+}
+
+/** Server broadcast when an NPC is updated. */
+export interface NpcUpdatedPayload {
+  sessionId: string;
+  npc: {
+    id: string;
+    name: string;
+    stats: Record<string, unknown>;
+    notes: string | null;
+    tokenId: string | null;
+  };
+}
+
+/** Server broadcast when an NPC is deleted. */
+export interface NpcDeletedPayload {
+  sessionId: string;
+  npcId: string;
+}
+
+// ---------------------------------------------------------------------------
+// Shared note event payloads
+// ---------------------------------------------------------------------------
+
+/** Server broadcast when a shared note is created. */
+export interface NoteCreatedPayload {
+  sessionId: string;
+  note: {
+    id: string;
+    title: string;
+    content: string;
+    updatedBy: string | null;
+    updatedAt: string;
+  };
+}
+
+/** Server broadcast when a shared note is updated. */
+export interface NoteUpdatedPayload {
+  sessionId: string;
+  note: {
+    id: string;
+    title: string;
+    content: string;
+    updatedBy: string | null;
+    updatedAt: string;
+  };
+}
+
+/** Server broadcast when a shared note is deleted. */
+export interface NoteDeletedPayload {
+  sessionId: string;
+  noteId: string;
+}
+
 // ---------------------------------------------------------------------------
 // Map event payloads
 // ---------------------------------------------------------------------------

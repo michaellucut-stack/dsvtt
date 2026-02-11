@@ -10,6 +10,8 @@ import { registerMapEvents } from './map-events.js';
 import { registerDiceEvents } from './dice-events.js';
 import { registerChatEvents } from './chat-events.js';
 import { registerTurnEvents } from './turn-events.js';
+import { registerNpcEvents } from './npc-events.js';
+import { registerCharacterEvents } from './character-events.js';
 
 /** Typed Socket.IO server instance. */
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -79,6 +81,8 @@ export function registerConnectionHandler(io: TypedServer): void {
     registerDiceEvents(io, socket);
     registerChatEvents(io, socket);
     registerTurnEvents(io, socket);
+    registerNpcEvents(io, socket);
+    registerCharacterEvents(io, socket);
 
     socket.on('disconnect', (reason) => {
       logger.info('Socket disconnected', {

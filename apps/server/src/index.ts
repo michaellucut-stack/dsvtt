@@ -14,6 +14,9 @@ import { mapRouter, mapDetailRouter } from './api/maps/map.router.js';
 import { diceRouter } from './api/dice/dice.router.js';
 import { chatRouter } from './api/chat/chat.router.js';
 import { turnRouter } from './api/turns/turn.router.js';
+import { npcRouter, npcDetailRouter } from './api/npcs/npc.router.js';
+import { characterRouter, characterDetailRouter } from './api/characters/character.router.js';
+import { notesRouter, notesDetailRouter } from './api/notes/notes.router.js';
 import { notFound, errorHandler } from './middleware/error-handler.js';
 import { apiRateLimit, authRateLimit } from './middleware/rate-limit.js';
 import { requestId, wsOriginValidation } from './middleware/security.js';
@@ -100,6 +103,12 @@ app.use('/api/maps', mapDetailRouter);
 app.use('/api/sessions/:sessionId/dice', diceRouter);
 app.use('/api/sessions/:sessionId/chat', chatRouter);
 app.use('/api/sessions/:sessionId/turns', turnRouter);
+app.use('/api/sessions/:sessionId/npcs', npcRouter);
+app.use('/api/npcs', npcDetailRouter);
+app.use('/api/sessions/:sessionId/characters', characterRouter);
+app.use('/api/characters', characterDetailRouter);
+app.use('/api/sessions/:sessionId/notes', notesRouter);
+app.use('/api/notes', notesDetailRouter);
 
 // ── Fallback handlers ────────────────────────────────────────────────
 
