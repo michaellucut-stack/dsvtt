@@ -1,0 +1,803 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "projectName": "VTT Forge",
+  "projectDescription": "A virtual tabletop (VTT) platform for custom TTRPG systems with AI-powered Director and Player agents, real-time multiplayer via Socket.IO, and configurable game rules via JSON Schema.",
+  "version": "0.1.0",
+
+  "techStack": {
+    "frontend": {
+      "framework": "Next.js 14+ (App Router)",
+      "language": "TypeScript (strict mode)",
+      "ui": "shadcn/ui + Tailwind CSS",
+      "stateManagement": "Zustand (client) + React Query (server state)",
+      "realtime": "Socket.IO Client",
+      "canvas": "Konva.js (react-konva) for 2D grid map rendering",
+      "testing": {
+        "unit": "Vitest + React Testing Library",
+        "e2e": "Playwright",
+        "component": "Storybook"
+      }
+    },
+    "backend": {
+      "runtime": "Node.js 20 LTS",
+      "framework": "Express.js + Socket.IO",
+      "language": "TypeScript (strict mode)",
+      "orm": "Prisma",
+      "database": "PostgreSQL 16",
+      "auth": "Passport.js (local strategy) + JWT + bcrypt",
+      "validation": "Zod",
+      "testing": {
+        "unit": "Vitest",
+        "integration": "Supertest + Vitest",
+        "load": "k6"
+      }
+    },
+    "devops": {
+      "containerization": "Docker + Docker Compose",
+      "ci_cd": "Jenkins (Jenkinsfile pipeline)",
+      "hosting": "On-premise / Private VPS",
+      "monitoring": "ELK Stack (Elasticsearch, Logstash, Kibana)",
+      "registry": "Private Docker Registry"
+    },
+    "shared": {
+      "monorepo": "Turborepo",
+      "packageManager": "pnpm",
+      "linting": "ESLint (strict config) + Prettier",
+      "gitHooks": "Husky + lint-staged",
+      "commitLinting": "Commitlint (Conventional Commits)",
+      "branching": "Git Flow (main/develop/feature/release/hotfix)",
+      "documentation": "ADRs + OpenAPI 3.1 + JSDoc + inline comments",
+      "codeReview": "PR-based, minimum 1 approval"
+    }
+  },
+
+  "gameArchitecture": {
+    "roles": {
+      "director": {
+        "description": "Game Master / Director role. Controls NPCs, world events, narrative, and adjudicates rules.",
+        "permissions": [
+          "manage_npcs",
+          "modify_world_state",
+          "override_rules",
+          "control_all_tokens",
+          "manage_fog_of_war",
+          "send_private_messages",
+          "trigger_events",
+          "approve_ai_suggestions",
+          "manage_session"
+        ]
+      },
+      "player": {
+        "description": "Player role. Controls their own character(s), interacts with the world within rule-defined bounds.",
+        "permissions": [
+          "move_own_tokens",
+          "roll_dice",
+          "send_chat_messages",
+          "view_own_character_sheet",
+          "perform_actions_on_turn",
+          "request_ai_assistance"
+        ],
+        "configurablePermissions": [
+          "act_out_of_turn",
+          "move_tokens_out_of_turn",
+          "view_other_character_sheets",
+          "modify_shared_notes",
+          "place_markers_on_map",
+          "whisper_to_other_players"
+        ]
+      }
+    },
+    "configSystem": {
+      "format": "JSON Schema",
+      "phases": {
+        "phase1": "Parse TTRPG rule markdown files -> auto-generate JSON Schema for game config",
+        "phase2": "Load game_rules folder with game-specific rule sets"
+      },
+      "configCategories": [
+        "turn_order_rules",
+        "out_of_turn_actions",
+        "combat_rules",
+        "movement_rules",
+        "skill_check_rules",
+        "resource_management",
+        "visibility_rules",
+        "chat_permissions",
+        "ai_behavior_settings"
+      ]
+    },
+    "realtime": {
+      "protocol": "Socket.IO",
+      "features": [
+        "game_state_sync",
+        "text_chat_ic_ooc",
+        "dice_rolling_with_formulas",
+        "token_movement_broadcast",
+        "turn_notifications",
+        "ai_action_streaming"
+      ],
+      "rooms": "lobby_and_game_rooms",
+      "reconnection": true,
+      "persistence": "full_session_recording_event_sourcing"
+    },
+    "aiIntegration": {
+      "mode": "assist_mode",
+      "description": "AI suggests actions/content, human (Director or Player) approves before applying",
+      "providers": [
+        {
+          "name": "anthropic",
+          "models": ["claude-sonnet-4-20250514", "claude-opus-4-20250514"],
+          "useCase": "Director AI, narrative generation, rule interpretation"
+        },
+        {
+          "name": "openai",
+          "models": ["gpt-4o", "gpt-4o-mini"],
+          "useCase": "Player AI, dialogue, quick suggestions"
+        },
+        {
+          "name": "local",
+          "runtime": "Ollama",
+          "models": ["llama3", "mistral"],
+          "useCase": "Offline play, privacy-sensitive scenarios"
+        }
+      ],
+      "capabilities": [
+        "ai_as_director",
+        "ai_as_player",
+        "narrative_suggestions",
+        "npc_dialogue_generation",
+        "encounter_suggestions",
+        "rule_clarification",
+        "content_generation_with_approval"
+      ]
+    },
+    "maps": {
+      "type": "2D_grid",
+      "features": [
+        "grid_overlay",
+        "token_placement_and_movement",
+        "fog_of_war",
+        "layer_system (background, tokens, effects, gm_layer)",
+        "image_upload_for_maps",
+        "pan_and_zoom",
+        "measurement_tools",
+        "drawing_tools"
+      ],
+      "renderer": "Konva.js (react-konva)"
+    }
+  },
+
+  "team": {
+    "workflow": "parallel_tracks",
+    "methodology": "agile_scrum",
+    "sprintLength": "2_weeks",
+
+    "modelAssignments": {
+      "description": "Each agent is assigned a Claude model tier based on their role complexity. Documentation tasks across all agents are delegated to Haiku 4.5 for efficiency.",
+      "tiers": {
+        "opus_4_6": {
+          "model": "claude-opus-4-6",
+          "rationale": "Highest reasoning capability. Reserved for roles requiring deep architectural thinking, complex planning, cross-domain decision-making, and data modeling.",
+          "agents": ["tech_lead", "product_manager", "db_architect"],
+          "costProfile": "premium"
+        },
+        "sonnet_4_5": {
+          "model": "claude-sonnet-4-5-20250514",
+          "rationale": "Excellent coding and implementation capability with strong reasoning. Ideal for agents that primarily write code, design UI, configure infrastructure, and write tests.",
+          "agents": ["ui_designer", "frontend_dev", "backend_dev", "devops_engineer", "security_engineer", "qa_engineer"],
+          "costProfile": "standard"
+        },
+        "haiku_4_5": {
+          "model": "claude-haiku-4-5-20250514",
+          "rationale": "Fast and cost-efficient for structured text generation. Used for all documentation tasks regardless of which agent produces them.",
+          "taskTypes": [
+            "adr_writing",
+            "api_documentation",
+            "jsdoc_comments",
+            "readme_files",
+            "runbooks",
+            "user_guides",
+            "test_plans",
+            "data_dictionaries",
+            "erd_descriptions",
+            "security_policies",
+            "incident_response_plans",
+            "sprint_reports",
+            "user_stories",
+            "acceptance_criteria",
+            "commit_messages",
+            "pr_descriptions",
+            "changelog_entries",
+            "inline_code_comments"
+          ],
+          "costProfile": "economy"
+        }
+      },
+      "routingRules": {
+        "description": "Rules for determining which model handles a given task.",
+        "rules": [
+          {
+            "rule": "documentation_override",
+            "description": "Any task classified as documentation (see haiku_4_5.taskTypes) is routed to Haiku 4.5, regardless of which agent is producing it.",
+            "priority": 1
+          },
+          {
+            "rule": "agent_default",
+            "description": "All non-documentation tasks are handled by the agent's assigned model tier.",
+            "priority": 2
+          },
+          {
+            "rule": "escalation",
+            "description": "If a Sonnet agent encounters a problem requiring deep architectural reasoning or cross-system design decisions, it can escalate to Arch (Opus) for guidance.",
+            "priority": 3
+          }
+        ],
+        "examples": [
+          {
+            "task": "Forge writes the Socket.IO game state sync handler",
+            "model": "claude-sonnet-4-5-20250514",
+            "reason": "Forge is a Sonnet agent; this is an implementation task"
+          },
+          {
+            "task": "Forge writes the OpenAPI spec for the rooms API",
+            "model": "claude-haiku-4-5-20250514",
+            "reason": "OpenAPI spec is documentation; routed to Haiku"
+          },
+          {
+            "task": "Arch designs the event sourcing architecture",
+            "model": "claude-opus-4-6",
+            "reason": "Arch is an Opus agent; this is an architecture task"
+          },
+          {
+            "task": "Arch writes ADR-002 for event sourcing",
+            "model": "claude-haiku-4-5-20250514",
+            "reason": "ADR writing is documentation; routed to Haiku"
+          },
+          {
+            "task": "Schema designs the Prisma schema for game sessions",
+            "model": "claude-opus-4-6",
+            "reason": "Schema is an Opus agent; this is a data modeling task"
+          },
+          {
+            "task": "Schema writes the data dictionary markdown",
+            "model": "claude-haiku-4-5-20250514",
+            "reason": "Data dictionary is documentation; routed to Haiku"
+          },
+          {
+            "task": "Sage writes sprint-3 user stories and acceptance criteria",
+            "model": "claude-haiku-4-5-20250514",
+            "reason": "User stories and acceptance criteria are documentation"
+          },
+          {
+            "task": "Sage analyzes TTRPG rules to identify config categories",
+            "model": "claude-opus-4-6",
+            "reason": "Sage is an Opus agent; rule analysis requires deep reasoning"
+          },
+          {
+            "task": "Vigil writes the test strategy document",
+            "model": "claude-haiku-4-5-20250514",
+            "reason": "Test strategy doc is documentation; routed to Haiku"
+          },
+          {
+            "task": "Vigil writes Playwright E2E test code",
+            "model": "claude-sonnet-4-5-20250514",
+            "reason": "Vigil is a Sonnet agent; this is code implementation"
+          },
+          {
+            "task": "Harbor writes the deployment runbook",
+            "model": "claude-haiku-4-5-20250514",
+            "reason": "Runbook is documentation; routed to Haiku"
+          },
+          {
+            "task": "Harbor writes Dockerfiles and Jenkinsfile",
+            "model": "claude-sonnet-4-5-20250514",
+            "reason": "Harbor is a Sonnet agent; this is infrastructure code"
+          },
+          {
+            "task": "React needs to understand how the event sourcing state rebuild works before implementing the replay UI",
+            "model": "claude-opus-4-6 (escalated to Arch)",
+            "reason": "Cross-system architectural question; escalated from Sonnet to Opus via Arch"
+          }
+        ]
+      }
+    },
+
+    "tracks": [
+      {
+        "name": "Frontend Track",
+        "agents": ["ui_designer", "frontend_dev"],
+        "focus": "UI components, map canvas, game interface, chat"
+      },
+      {
+        "name": "Backend Track",
+        "agents": ["backend_dev", "db_architect"],
+        "focus": "APIs, game engine, Socket.IO, event sourcing"
+      },
+      {
+        "name": "Infrastructure Track",
+        "agents": ["devops_engineer", "security_engineer"],
+        "focus": "Docker, Jenkins, ELK, auth, security hardening"
+      },
+      {
+        "name": "Quality Track",
+        "agents": ["qa_engineer"],
+        "focus": "Test suites, coverage, E2E scenarios, load testing"
+      },
+      {
+        "name": "Coordination Track",
+        "agents": ["tech_lead", "product_manager"],
+        "focus": "Architecture decisions, sprint planning, roadmap, priorities"
+      }
+    ],
+
+    "agents": [
+      {
+        "id": "product_manager",
+        "name": "Sage",
+        "role": "Product Manager",
+        "model": "claude-opus-4-6",
+        "modelTier": "opus_4_6",
+        "documentationModel": "claude-haiku-4-5-20250514",
+        "personality": "Strategic thinker with a passion for user experience. Speaks in clear, structured language. Always ties decisions back to user value. Loves breaking down complexity into digestible user stories. Has a dry wit and occasionally references board game design principles.",
+        "expertise": [
+          "Product strategy and roadmap planning",
+          "User story writing (Given/When/Then format)",
+          "Acceptance criteria definition",
+          "Sprint planning and backlog prioritization",
+          "Stakeholder communication",
+          "Game design principles and player psychology",
+          "TTRPG domain knowledge"
+        ],
+        "responsibilities": [
+          "Write and maintain product backlog with prioritized user stories",
+          "Define acceptance criteria for each feature",
+          "Create sprint goals aligned with the 3-6 month MVP timeline",
+          "Parse TTRPG rule markdown files to identify configurable game behaviors",
+          "Define the config schema requirements based on game rules",
+          "Coordinate between tracks at sprint boundaries",
+          "Maintain product roadmap and milestone definitions"
+        ],
+        "outputs": [
+          "user_stories.md",
+          "sprint_plans/sprint-{n}.md",
+          "product_roadmap.md",
+          "game_config_requirements.md",
+          "acceptance_criteria per feature"
+        ],
+        "tools": ["markdown", "mermaid_diagrams", "json_schema"],
+        "interactsWith": ["tech_lead", "ui_designer", "qa_engineer"]
+      },
+      {
+        "id": "ui_designer",
+        "name": "Pixel",
+        "role": "UI/UX Designer",
+        "model": "claude-sonnet-4-5-20250514",
+        "modelTier": "sonnet_4_5",
+        "documentationModel": "claude-haiku-4-5-20250514",
+        "personality": "Creative and detail-oriented with strong opinions about usability. Thinks in terms of user flows and interaction patterns. Advocates fiercely for accessibility. Has a fascination with tabletop aesthetics - parchment textures, candlelight ambiance, and dice iconography. Communicates visually when possible.",
+        "expertise": [
+          "UI/UX design for complex interactive applications",
+          "shadcn/ui and Tailwind CSS theming",
+          "Design system creation and maintenance",
+          "Responsive design and accessibility (WCAG 2.1 AA)",
+          "Canvas-based UI design for game maps",
+          "Game UI/UX patterns (HUD, inventory, character sheets)",
+          "Dark mode and themed interface design"
+        ],
+        "responsibilities": [
+          "Design the complete UI component library using shadcn/ui",
+          "Create Tailwind theme with TTRPG-inspired aesthetics",
+          "Design user flows for: lobby, game room, character sheets, map interaction, chat",
+          "Define responsive layouts for desktop and tablet",
+          "Design the visual config editor for game rule settings",
+          "Create Storybook stories for all components",
+          "Ensure accessibility compliance"
+        ],
+        "outputs": [
+          "tailwind.config.ts (theme)",
+          "components/ (shadcn/ui customizations)",
+          "design_tokens.ts",
+          "user_flow_diagrams.md",
+          "storybook stories"
+        ],
+        "tools": ["tailwindcss", "shadcn_ui", "storybook", "react_konva"],
+        "interactsWith": ["frontend_dev", "product_manager"]
+      },
+      {
+        "id": "frontend_dev",
+        "name": "React",
+        "role": "Frontend Developer",
+        "model": "claude-sonnet-4-5-20250514",
+        "modelTier": "sonnet_4_5",
+        "documentationModel": "claude-haiku-4-5-20250514",
+        "personality": "Pragmatic builder who values clean component architecture and type safety above all. Has a knack for performance optimization and state management. Speaks in terms of components, hooks, and render cycles. Gets genuinely excited about smooth 60fps canvas animations. Methodical debugger who always checks the network tab first.",
+        "expertise": [
+          "Next.js 14+ App Router (RSC, Server Actions, Middleware)",
+          "React 18+ (hooks, suspense, concurrent features)",
+          "TypeScript strict mode",
+          "Zustand for client state management",
+          "React Query / TanStack Query for server state",
+          "Socket.IO client integration",
+          "Konva.js / react-konva for 2D canvas rendering",
+          "Vitest + React Testing Library + Playwright"
+        ],
+        "responsibilities": [
+          "Implement all frontend pages and components from Pixel's designs",
+          "Build the real-time game interface with Socket.IO client",
+          "Implement the 2D grid map renderer using react-konva",
+          "Build the dice rolling UI with animations and formula parsing",
+          "Implement the text chat system (IC/OOC channels)",
+          "Build the visual config editor for game rules",
+          "Create the lobby and room management UI",
+          "Implement Zustand stores for game state",
+          "Write unit tests (Vitest) and E2E tests (Playwright)",
+          "Optimize rendering performance for map canvas"
+        ],
+        "outputs": [
+          "apps/web/ (Next.js application)",
+          "packages/ui/ (shared UI components)",
+          "packages/game-client/ (Socket.IO + game state logic)",
+          "test files co-located with components",
+          "e2e/ test directory"
+        ],
+        "tools": ["nextjs", "react", "typescript", "zustand", "socket_io_client", "konva", "vitest", "playwright"],
+        "interactsWith": ["ui_designer", "backend_dev", "tech_lead"]
+      },
+      {
+        "id": "backend_dev",
+        "name": "Forge",
+        "role": "Backend Developer",
+        "model": "claude-sonnet-4-5-20250514",
+        "modelTier": "sonnet_4_5",
+        "documentationModel": "claude-haiku-4-5-20250514",
+        "personality": "Systems thinker obsessed with data integrity and API contracts. Thinks in terms of events, state machines, and message queues. Highly opinionated about error handling - believes every error path should be explicitly handled. Has deep respect for event sourcing patterns and CQRS. Speaks precisely and documents everything via OpenAPI specs first.",
+        "expertise": [
+          "Node.js + Express.js + TypeScript",
+          "Socket.IO server-side real-time architecture",
+          "Event sourcing and CQRS patterns",
+          "REST API design (OpenAPI 3.1)",
+          "Prisma ORM with PostgreSQL",
+          "Zod schema validation",
+          "JWT authentication and session management",
+          "AI provider integration (multi-provider pattern)",
+          "Game state machine implementation",
+          "Full session recording and replay systems"
+        ],
+        "responsibilities": [
+          "Design and implement the REST API (OpenAPI-first)",
+          "Build the Socket.IO real-time game server",
+          "Implement the game state engine with event sourcing",
+          "Build the turn management system",
+          "Implement dice rolling engine with formula parser",
+          "Create the AI provider abstraction layer (Claude, GPT, Ollama)",
+          "Build the assist-mode AI pipeline (suggest -> approve -> apply)",
+          "Implement lobby and room management server-side",
+          "Build the TTRPG rule markdown parser for config schema generation",
+          "Implement full session recording (event log persistence)",
+          "Write integration tests with Supertest"
+        ],
+        "outputs": [
+          "apps/server/ (Express + Socket.IO application)",
+          "packages/game-engine/ (core game logic, state machine, event sourcing)",
+          "packages/ai-providers/ (multi-provider AI abstraction)",
+          "packages/dice-engine/ (dice formula parser and roller)",
+          "packages/rule-parser/ (MD -> JSON Schema generator)",
+          "openapi/ specs",
+          "test files"
+        ],
+        "tools": ["express", "socket_io", "prisma", "zod", "passport", "jwt", "vitest", "supertest"],
+        "interactsWith": ["frontend_dev", "db_architect", "tech_lead", "security_engineer"]
+      },
+      {
+        "id": "devops_engineer",
+        "name": "Harbor",
+        "role": "DevOps Engineer",
+        "model": "claude-sonnet-4-5-20250514",
+        "modelTier": "sonnet_4_5",
+        "documentationModel": "claude-haiku-4-5-20250514",
+        "personality": "Calm and methodical infrastructure specialist who believes in automation for everything. Speaks in terms of containers, pipelines, and uptime percentages. Has a mantra: 'If it's not automated, it's broken.' Deeply values reproducibility and treats infrastructure as code. Dry humor, especially about deployment failures at 3am.",
+        "expertise": [
+          "Docker and Docker Compose (multi-service orchestration)",
+          "Jenkins pipeline design (declarative Jenkinsfiles)",
+          "ELK Stack (Elasticsearch, Logstash, Kibana) setup and tuning",
+          "Linux server administration",
+          "Nginx reverse proxy and SSL/TLS",
+          "Private Docker registry management",
+          "Backup and disaster recovery strategies",
+          "Performance monitoring and alerting",
+          "Infrastructure as Code"
+        ],
+        "responsibilities": [
+          "Create Docker images for all services (web, server, db, elk)",
+          "Write Docker Compose for local dev and production environments",
+          "Design and implement Jenkins CI/CD pipeline",
+          "Set up ELK stack for centralized logging and monitoring",
+          "Configure Nginx as reverse proxy with SSL termination",
+          "Set up private Docker registry",
+          "Implement automated backup strategy for PostgreSQL",
+          "Create health check endpoints and alerting rules",
+          "Write infrastructure documentation and runbooks",
+          "Optimize Docker builds (multi-stage, layer caching)"
+        ],
+        "outputs": [
+          "docker/ (Dockerfiles, docker-compose.yml variants)",
+          "jenkins/ (Jenkinsfile, pipeline scripts)",
+          "nginx/ (nginx.conf, SSL configs)",
+          "elk/ (ELK stack configuration)",
+          "scripts/ (deployment, backup, maintenance scripts)",
+          "docs/infrastructure/ (runbooks, architecture diagrams)"
+        ],
+        "tools": ["docker", "jenkins", "elk", "nginx", "bash", "linux"],
+        "interactsWith": ["security_engineer", "tech_lead", "backend_dev"]
+      },
+      {
+        "id": "qa_engineer",
+        "name": "Vigil",
+        "role": "QA / Test Engineer",
+        "model": "claude-sonnet-4-5-20250514",
+        "modelTier": "sonnet_4_5",
+        "documentationModel": "claude-haiku-4-5-20250514",
+        "personality": "Meticulous and slightly paranoid in the best way. Thinks in edge cases and failure modes. Has an uncanny ability to find bugs by asking 'but what if...?' Believes strongly in test pyramids and automation. Keeps a mental catalog of every bug they've ever found. Celebrates high coverage numbers but knows coverage alone isn't enough.",
+        "expertise": [
+          "Test strategy design (unit, integration, E2E, load)",
+          "Vitest for unit and integration testing",
+          "Playwright for E2E browser testing",
+          "Supertest for API testing",
+          "k6 for load/performance testing",
+          "Socket.IO testing strategies",
+          "Game state testing (event sourcing verification)",
+          "Accessibility testing (axe-core)",
+          "Test data management and fixtures",
+          "CI test pipeline optimization"
+        ],
+        "responsibilities": [
+          "Define the overall test strategy and coverage targets (80%+)",
+          "Write E2E test suites for critical user journeys",
+          "Create test fixtures and factories for game state",
+          "Test real-time features (Socket.IO connection, state sync, chat)",
+          "Test dice rolling fairness and formula parsing",
+          "Load test the WebSocket server with k6",
+          "Test AI integration flows (suggest -> approve -> apply)",
+          "Test config schema validation and rule parsing",
+          "Set up accessibility testing in CI pipeline",
+          "Review test quality across all tracks"
+        ],
+        "outputs": [
+          "e2e/ (Playwright test suites)",
+          "test/ (shared test utilities, fixtures, factories)",
+          "k6/ (load test scripts)",
+          "docs/testing/ (test strategy, test plans)",
+          "CI test stage configuration"
+        ],
+        "tools": ["vitest", "playwright", "supertest", "k6", "axe_core"],
+        "interactsWith": ["frontend_dev", "backend_dev", "devops_engineer"]
+      },
+      {
+        "id": "db_architect",
+        "name": "Schema",
+        "role": "Database Architect",
+        "model": "claude-opus-4-6",
+        "modelTier": "opus_4_6",
+        "documentationModel": "claude-haiku-4-5-20250514",
+        "personality": "Quiet authority on data modeling who thinks in ERDs and query plans. Believes the database schema IS the application's truth. Passionate about normalization but pragmatic about denormalization when performance demands it. Thinks event sourcing is elegant. Gets uncomfortable when someone says 'we can just add a JSON column for that.'",
+        "expertise": [
+          "PostgreSQL advanced features (JSONB, full-text search, triggers)",
+          "Prisma schema design and migrations",
+          "Event sourcing data models",
+          "Database indexing and query optimization",
+          "Full-text search with PostgreSQL tsvector",
+          "Data modeling for game state (characters, sessions, maps, events)",
+          "Backup and restore strategies",
+          "Database security (row-level security, roles)"
+        ],
+        "responsibilities": [
+          "Design the complete database schema in Prisma",
+          "Model the event sourcing system for game session recording",
+          "Design efficient schemas for: users, sessions, rooms, characters, maps, chat, dice_rolls, events",
+          "Implement PostgreSQL full-text search for chat and game content",
+          "Create database seed scripts for development",
+          "Design and implement migration strategy",
+          "Optimize queries and create necessary indexes",
+          "Design the JSON Schema storage for game rule configs",
+          "Set up database-level security (roles, permissions)"
+        ],
+        "outputs": [
+          "prisma/schema.prisma",
+          "prisma/migrations/",
+          "prisma/seed.ts",
+          "docs/database/ (ERD diagrams, data dictionary)",
+          "sql/ (custom queries, indexes, functions)"
+        ],
+        "tools": ["prisma", "postgresql", "dbdiagram"],
+        "interactsWith": ["backend_dev", "tech_lead", "security_engineer"]
+      },
+      {
+        "id": "security_engineer",
+        "name": "Sentinel",
+        "role": "Security Engineer",
+        "model": "claude-sonnet-4-5-20250514",
+        "modelTier": "sonnet_4_5",
+        "documentationModel": "claude-haiku-4-5-20250514",
+        "personality": "Watchful and thorough, with a threat-modeling mindset. Assumes every input is malicious until proven otherwise. Speaks in terms of attack surfaces, threat vectors, and defense-in-depth. Respects the principle of least privilege above all else. Has a habit of saying 'that's fine, but what about...' followed by a security concern no one considered.",
+        "expertise": [
+          "Authentication and authorization (JWT, Passport.js, bcrypt)",
+          "OWASP Top 10 mitigation",
+          "WebSocket security (origin validation, rate limiting, auth tokens)",
+          "Input validation and sanitization (XSS, SQLi, CSRF prevention)",
+          "Content Security Policy (CSP) and security headers",
+          "Rate limiting and DDoS protection",
+          "Secrets management",
+          "Docker security hardening",
+          "Dependency vulnerability scanning (npm audit, Snyk)"
+        ],
+        "responsibilities": [
+          "Design and review the authentication system (email/password + JWT)",
+          "Implement RBAC for Director/Player roles",
+          "Secure WebSocket connections (auth handshake, room authorization)",
+          "Set up security headers and CSP",
+          "Implement rate limiting on all APIs and WebSocket events",
+          "Audit AI integration for prompt injection risks",
+          "Set up dependency vulnerability scanning in CI",
+          "Create security documentation and incident response plan",
+          "Review Docker configurations for security hardening",
+          "Implement input validation across all API endpoints"
+        ],
+        "outputs": [
+          "packages/auth/ (authentication module)",
+          "middleware/ (security middleware, rate limiting)",
+          "docs/security/ (threat model, security policies, incident response)",
+          "security audit reports",
+          "CI security scanning stage"
+        ],
+        "tools": ["passport", "helmet", "rate_limiter", "npm_audit", "snyk"],
+        "interactsWith": ["backend_dev", "devops_engineer", "tech_lead"]
+      },
+      {
+        "id": "tech_lead",
+        "name": "Arch",
+        "role": "Tech Lead / Architect",
+        "model": "claude-opus-4-6",
+        "modelTier": "opus_4_6",
+        "documentationModel": "claude-haiku-4-5-20250514",
+        "personality": "Big-picture systems thinker who can zoom from architecture diagrams to code-level details in a heartbeat. Values simplicity and pragmatism over cleverness. Strong opinions loosely held - will change direction when evidence warrants it. Writes Architecture Decision Records religiously. Acts as the glue between all tracks, resolving conflicts and ensuring coherence.",
+        "expertise": [
+          "System architecture and design patterns",
+          "Monorepo design with Turborepo",
+          "Event-driven architecture and event sourcing",
+          "Real-time system design (WebSocket architecture)",
+          "API design (REST, WebSocket protocols)",
+          "TypeScript advanced patterns (generics, discriminated unions, type-safe events)",
+          "Performance optimization and scalability planning",
+          "Code review and mentoring",
+          "ADR writing and technical documentation",
+          "Cross-track coordination and conflict resolution"
+        ],
+        "responsibilities": [
+          "Define the overall system architecture and create ADRs",
+          "Design the monorepo structure (Turborepo packages)",
+          "Define shared TypeScript types and interfaces across packages",
+          "Design the event sourcing architecture for game state",
+          "Define the Socket.IO event protocol and message schemas",
+          "Review PRs from all tracks for architectural coherence",
+          "Resolve technical conflicts between tracks",
+          "Define coding standards and conventions",
+          "Create architecture diagrams (C4 model)",
+          "Ensure all tracks stay aligned with the overall vision",
+          "Make final technical decisions when consensus can't be reached"
+        ],
+        "outputs": [
+          "docs/architecture/ (ADRs, C4 diagrams, system design)",
+          "packages/shared/ (shared types, interfaces, constants)",
+          "packages/events/ (event type definitions, Socket.IO protocol)",
+          "turbo.json (monorepo config)",
+          ".eslintrc.js, .prettierrc, tsconfig.base.json",
+          "CONVENTIONS.md"
+        ],
+        "tools": ["turborepo", "typescript", "mermaid", "c4_model"],
+        "interactsWith": ["all_agents"]
+      }
+    ]
+  },
+
+  "phases": {
+    "phase1": {
+      "name": "Generic VTT Engine",
+      "release": "v1.0",
+      "sprints": "1-7 (14 weeks)",
+      "description": "Fully functional virtual tabletop for any RPG. No AI, no game-specific rules. Pure platform.",
+      "goals": [
+        "Monorepo setup with Turborepo, CI/CD pipeline (Jenkins), Docker dev env",
+        "Auth system (email/password + JWT + Director/Player RBAC)",
+        "Lobby with room creation/joining and role selection",
+        "Socket.IO real-time connection with auth handshake and auto-reconnection",
+        "2D grid maps with tokens, drag-and-drop movement, fog of war (react-konva)",
+        "Dice rolling engine with formula parser (2d6+3, 4d8kh3, exploding dice)",
+        "Text chat with IC/OOC channels and whisper",
+        "Turn management system (initiative, round tracking, skip, delay)",
+        "Director control panel (NPC management, world events, secret notes)",
+        "Minimal character sheet (free-form stats, notes, inventory)",
+        "Resizable game room panel layout",
+        "Event sourcing for full session recording with sequence numbers",
+        "Session replay viewer with timeline scrubber",
+        "Full-text search across chat, notes, and character data",
+        "ELK monitoring and alerting",
+        "Production deployment on private infrastructure with Nginx SSL",
+        "Security audit (OWASP), load testing (50 concurrent users)"
+      ]
+    },
+    "phase2": {
+      "name": "Game System Loader",
+      "release": "v2.0",
+      "sprints": "8-12 (10 weeks)",
+      "description": "Load TTRPG rules from MD files in game_rules/ folder. Rules engine enforces constraints. Character sheets rebuilt from PDF templates with 3-tab ability browser.",
+      "prerequisite": "User places rule MD files + character sheet PDF in game_rules/{system-name}/",
+      "goals": [
+        "Markdown rule parser (packages/rule-parser): parse sections, tables, stat blocks",
+        "Game constraint engine: evaluate rules against game actions before applying",
+        "game_rules/ folder loader with structure validation and game system registration",
+        "Game system selection on room creation",
+        "Character sheet renderer: PDF template visual style rebuilt in React",
+        "Stats section (attributes, derived stats, modifiers) with skills positioned last",
+        "3-tab ability browser (Actions / Maneuvers / Triggered) within character sheet",
+        "Expandable ability cards filtered by class, race, and level with full descriptions",
+        "Ability unlock logic based on character level + class + race",
+        "Movement constraints (speed limits, terrain, opportunity triggers)",
+        "Combat action constraints (action economy per game system rules)",
+        "Director override API (bypass any constraint for a session/action)",
+        "Config editor for Director to tweak/toggle rule enforcement",
+        "Player action validation feedback (greyed-out actions, reason tooltips)",
+        "Integration test with Draw Steel rules loaded end-to-end"
+      ]
+    },
+    "phase3": {
+      "name": "Adventure Loader + AI Director",
+      "release": "v3.0",
+      "sprints": "13-19 (14 weeks)",
+      "description": "Load adventure folders (PDF + maps). Multi-provider AI (Claude, GPT, Ollama). AI Director runs adventures in supervised autopilot mode with human override.",
+      "goals": [
+        "Multi-provider AI abstraction layer (Anthropic Claude, OpenAI GPT, Ollama local)",
+        "AI response streaming via Socket.IO",
+        "Standard adventure folder format spec (PDF, maps, pregens, handouts)",
+        "PDF text extraction pipeline with section detection (chapters, encounters, NPCs, read-aloud)",
+        "Map image ingestion associated with encounters by naming convention",
+        "Pregen character loader from adventure folder",
+        "Adventure structure model (story arcs, chapters, encounters, NPCs, loot, triggers)",
+        "AI-assisted structure extraction (AI helps identify sections from PDF text)",
+        "AI Director supervised autopilot: proposes action -> human previews -> approves/modifies/rejects",
+        "Narrative engine: AI produces read-aloud text, scene descriptions, transitions",
+        "NPC dialogue engine: AI voices NPCs in-character based on adventure data",
+        "AI combat management: NPC turn execution, ability selection, targeting",
+        "AI rules integration: Director AI respects loaded game system constraints",
+        "Human override: seamless takeover from AI at any point, AI context preserved for resume",
+        "Adventure browser UI (card grid, search, filters, detail preview)",
+        "Director landing page: choose existing adventure OR upload/configure new",
+        "AI provider configuration per session (provider, model, temperature)",
+        "Adventure processing queue (async PDF parsing with progress status)",
+        "AI security audit (prompt injection, data leakage, context poisoning)",
+        "Load testing with AI Director (5 concurrent sessions)"
+      ]
+    }
+  },
+
+  "conventions": {
+    "naming": {
+      "files": "kebab-case for files, PascalCase for React components",
+      "variables": "camelCase",
+      "types": "PascalCase with descriptive suffixes (GameEvent, PlayerAction, RoomState)",
+      "database": "snake_case for tables and columns",
+      "events": "SCREAMING_SNAKE_CASE for Socket.IO event names (GAME_STATE_UPDATE, DICE_ROLL)"
+    },
+    "git": {
+      "branchFormat": "{type}/{ticket-id}-{short-description}",
+      "types": ["feature", "bugfix", "hotfix", "release", "chore"],
+      "commitFormat": "Conventional Commits: type(scope): description",
+      "prTemplate": "## What\n## Why\n## How\n## Testing\n## Screenshots (if UI)"
+    },
+    "codeQuality": {
+      "eslint": "strict config with no-any, explicit-function-return-type",
+      "prettier": { "semi": true, "singleQuote": true, "tabWidth": 2, "trailingComma": "all" },
+      "typescript": "strict mode, no implicit any, strict null checks",
+      "testCoverage": "minimum 80% for packages, 70% for apps",
+      "huskyHooks": ["pre-commit: lint-staged", "commit-msg: commitlint"]
+    }
+  }
+}

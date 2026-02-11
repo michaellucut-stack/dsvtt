@@ -1,0 +1,67 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+.turbo/
+out/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Credentials and secrets
+*.pem
+*.key
+nginx/ssl/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Docker volumes (local dev data)
+docker/volumes/
+postgres-data/
+
+# ELK data
+elk/data/
+
+# Prisma
+prisma/*.db
+
+# Storybook
+storybook-static/
+
+# k6 results
+k6/results/
+
+# Playwright
+test-results/
+playwright-report/
+
+# Uploaded assets (maps, adventure files)
+uploads/
+
+# AI provider caches
+.ai-cache/
