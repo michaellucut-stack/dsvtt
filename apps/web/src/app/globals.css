@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg-primary: #1a1b1e;
+  --color-bg-secondary: #2c2d31;
+  --color-bg-card: #37383d;
+  --color-text-primary: #fdf9f0;
+  --color-text-secondary: #c4c6cb;
+  --color-accent: #f0aa07;
+  --color-accent-hover: #ffcc20;
+  --color-border: #4e5058;
+  --color-danger: #ed1520;
+  --color-success: #17b164;
+}
+
+@layer base {
+  html {
+    @apply bg-charcoal-950 text-parchment-100 antialiased;
+  }
+
+  body {
+    @apply font-body min-h-screen;
+  }
+
+  ::selection {
+    @apply bg-gold-500/30 text-parchment-50;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-charcoal-900;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-charcoal-600 hover:bg-charcoal-500;
+  }
+}
+
+@layer components {
+  .text-glow {
+    text-shadow: 0 0 10px rgba(240, 170, 7, 0.4), 0 0 20px rgba(240, 170, 7, 0.2);
+  }
+
+  .border-ornate {
+    @apply border border-gold-700/40;
+    background-image: linear-gradient(
+      135deg,
+      rgba(240, 170, 7, 0.05) 0%,
+      transparent 50%,
+      rgba(240, 170, 7, 0.05) 100%
+    );
+  }
+}

@@ -1,0 +1,61 @@
+# =============================================================================
+# DSVTT — Development Docker Compose
+# =============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dsvtt-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: dsvtt
+      POSTGRES_PASSWORD: dsvtt_dev
+      POSTGRES_DB: dsvtt
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dsvtt -d dsvtt"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.server
+    container_name: dsvtt-server
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ../.env
+    environment:
+      DATABASE_URL: postgresql://dsvtt:dsvtt_dev@postgres:5432/dsvtt?schema=public
+      NODE_ENV: development
+    volumes:
+      - ../apps/server/src:/app/apps/server/src:ro
+      - ../packages:/app/packages:ro
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+    container_name: dsvtt-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_WS_URL: http://localhost:4000
+      NODE_ENV: development
+
+volumes:
+  postgres_data:
+    driver: local

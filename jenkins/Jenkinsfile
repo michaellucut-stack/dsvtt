@@ -1,0 +1,126 @@
+// =============================================================================
+// DSVTT (VTT Forge) — Declarative Jenkins Pipeline
+// =============================================================================
+
+pipeline {
+    agent {
+        docker {
+            image 'node:20-alpine'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
+
+    environment {
+        CI            = 'true'
+        PNPM_HOME     = "${WORKSPACE}/.pnpm"
+        PATH          = "${PNPM_HOME}:${PATH}"
+        NODE_ENV      = 'test'
+    }
+
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install') {
+            steps {
+                sh '''
+                    corepack enable
+                    corepack prepare pnpm@9.15.4 --activate
+                    pnpm install --frozen-lockfile
+                '''
+            }
+        }
+
+        stage('Lint') {
+            steps {
+                sh 'pnpm lint'
+            }
+        }
+
+        stage('Typecheck') {
+            steps {
+                sh 'pnpm --filter @dsvtt/shared build'
+                sh 'pnpm --filter @dsvtt/events build'
+                sh 'pnpm --filter @dsvtt/auth build'
+                sh 'pnpm -r typecheck'
+            }
+        }
+
+        stage('Test') {
+            parallel {
+                stage('Unit Tests') {
+                    steps {
+                        sh 'pnpm test -- --coverage'
+                    }
+                }
+                stage('E2E Tests') {
+                    when {
+                        branch 'main'
+                    }
+                    steps {
+                        sh 'pnpm test:e2e'
+                    }
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'pnpm build'
+            }
+        }
+
+        stage('Docker Build') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'develop'
+                }
+            }
+            steps {
+                sh '''
+                    docker build -f docker/Dockerfile.server -t dsvtt-server:${BUILD_NUMBER} .
+                    docker build -f docker/Dockerfile.web -t dsvtt-web:${BUILD_NUMBER} .
+                '''
+            }
+        }
+
+        stage('Deploy') {
+            when {
+                branch 'main'
+            }
+            steps {
+                echo 'Deploy stage — placeholder for production deployment'
+                // TODO: Push images to container registry
+                // TODO: Deploy via Kubernetes / Docker Swarm / ECS
+                // sh 'docker tag dsvtt-server:${BUILD_NUMBER} registry.example.com/dsvtt-server:${BUILD_NUMBER}'
+                // sh 'docker push registry.example.com/dsvtt-server:${BUILD_NUMBER}'
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -rf node_modules/.cache'
+            cleanWs()
+        }
+        success {
+            echo "Build #${BUILD_NUMBER} succeeded on branch ${BRANCH_NAME}"
+        }
+        failure {
+            echo "Build #${BUILD_NUMBER} FAILED on branch ${BRANCH_NAME}"
+            // TODO: Integrate notification (Slack, email, etc.)
+            // slackSend channel: '#ci', color: 'danger',
+            //     message: "DSVTT build #${BUILD_NUMBER} failed on ${BRANCH_NAME}"
+        }
+    }
+}

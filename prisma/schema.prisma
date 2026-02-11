@@ -1,0 +1,288 @@
+// ============================================================================
+// DSVTT (VTT Forge) — Prisma Schema v1
+// ============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum RoomStatus {
+  WAITING
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum PlayerRole {
+  DIRECTOR
+  PLAYER
+}
+
+enum SessionStatus {
+  SETUP
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum ActorType {
+  DIRECTOR
+  PLAYER
+  AI
+  SYSTEM
+}
+
+enum ChatChannel {
+  IC
+  OOC
+  WHISPER
+  SYSTEM
+}
+
+enum TokenLayer {
+  BACKGROUND
+  TOKEN
+  EFFECT
+  GM
+}
+
+// ─── Models ─────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  directedRooms Room[]       @relation("RoomDirector")
+  roomPlayers   RoomPlayer[]
+  characters    Character[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model Room {
+  id         String     @id @default(uuid()) @db.Uuid
+  name       String
+  status     RoomStatus @default(WAITING)
+  directorId String     @db.Uuid
+  maxPlayers Int        @default(8)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  director     User          @relation("RoomDirector", fields: [directorId], references: [id], onDelete: Cascade)
+  players      RoomPlayer[]
+  gameSessions GameSession[]
+
+  @@index([directorId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("rooms")
+}
+
+model RoomPlayer {
+  id       String     @id @default(uuid()) @db.Uuid
+  roomId   String     @db.Uuid
+  userId   String     @db.Uuid
+  role     PlayerRole
+  joinedAt DateTime   @default(now())
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@index([roomId])
+  @@index([userId])
+  @@map("room_players")
+}
+
+model GameSession {
+  id         String        @id @default(uuid()) @db.Uuid
+  roomId     String        @db.Uuid
+  status     SessionStatus @default(SETUP)
+  startedAt  DateTime      @default(now())
+  endedAt    DateTime?
+  eventCount Int           @default(0)
+
+  room         Room           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  eventLogs    GameEventLog[]
+  maps         GameMap[]
+  chatMessages ChatMessage[]
+  diceRolls    DiceRollLog[]
+  npcs         Npc[]
+  characters   Character[]
+  sharedNotes  SharedNote[]
+
+  @@index([roomId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("game_sessions")
+}
+
+model GameEventLog {
+  id             String    @id @default(uuid()) @db.Uuid
+  sessionId      String    @db.Uuid
+  sequenceNumber Int
+  eventType      String
+  payload        Json
+  actorId        String
+  actorType      ActorType
+  timestamp      DateTime  @default(now())
+  metadata       Json      @default("{}")
+
+  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, sequenceNumber])
+  @@index([sessionId])
+  @@index([eventType])
+  @@index([timestamp])
+  @@map("game_event_logs")
+}
+
+model GameMap {
+  id            String   @id @default(uuid()) @db.Uuid
+  sessionId     String   @db.Uuid
+  name          String
+  backgroundUrl String?
+  gridWidth     Int      @default(20)
+  gridHeight    Int      @default(15)
+  gridSize      Int      @default(64)
+  createdAt     DateTime @default(now())
+
+  session    GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  tokens     Token[]
+  fogRegions FogRegion[]
+
+  @@index([sessionId])
+  @@map("game_maps")
+}
+
+model Token {
+  id       String     @id @default(uuid()) @db.Uuid
+  mapId    String     @db.Uuid
+  ownerId  String
+  name     String
+  imageUrl String?
+  x        Float
+  y        Float
+  width    Float      @default(1)
+  height   Float      @default(1)
+  layer    TokenLayer @default(TOKEN)
+  visible  Boolean    @default(true)
+
+  map  GameMap @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  npcs Npc[]
+
+  @@index([mapId])
+  @@index([ownerId])
+  @@map("tokens")
+}
+
+model FogRegion {
+  id       String  @id @default(uuid()) @db.Uuid
+  mapId    String  @db.Uuid
+  points   Json
+  revealed Boolean @default(false)
+
+  map GameMap @relation(fields: [mapId], references: [id], onDelete: Cascade)
+
+  @@index([mapId])
+  @@map("fog_regions")
+}
+
+model ChatMessage {
+  id           String                   @id @default(uuid()) @db.Uuid
+  sessionId    String                   @db.Uuid
+  senderId     String
+  senderName   String
+  channel      ChatChannel
+  content      String
+  recipientId  String?
+  timestamp    DateTime                 @default(now())
+  searchVector Unsupported("tsvector")?
+
+  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([senderId])
+  @@index([channel])
+  @@index([timestamp])
+  @@map("chat_messages")
+}
+
+model DiceRollLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  sessionId String   @db.Uuid
+  playerId  String
+  formula   String
+  results   Json
+  total     Int
+  isPrivate Boolean  @default(false)
+  timestamp DateTime @default(now())
+
+  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([playerId])
+  @@index([timestamp])
+  @@map("dice_roll_logs")
+}
+
+model Npc {
+  id        String  @id @default(uuid()) @db.Uuid
+  sessionId String  @db.Uuid
+  name      String
+  stats     Json    @default("{}")
+  notes     String?
+  tokenId   String? @db.Uuid
+
+  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  token   Token?      @relation(fields: [tokenId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId])
+  @@index([tokenId])
+  @@map("npcs")
+}
+
+model Character {
+  id        String  @id @default(uuid()) @db.Uuid
+  sessionId String  @db.Uuid
+  userId    String  @db.Uuid
+  name      String
+  stats     Json    @default("{}")
+  notes     String?
+  inventory Json    @default("[]")
+
+  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([userId])
+  @@map("characters")
+}
+
+model SharedNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  sessionId String   @db.Uuid
+  title     String
+  content   String
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+
+  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([updatedAt])
+  @@map("shared_notes")
+}

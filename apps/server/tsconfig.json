@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "composite": true,
+    "paths": {
+      "@dsvtt/shared": ["../../packages/shared/src/index.ts"],
+      "@dsvtt/events": ["../../packages/events/src/index.ts"],
+      "@dsvtt/auth": ["../../packages/auth/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "coverage", "**/*.test.ts"],
+  "references": [
+    { "path": "../../packages/shared" },
+    { "path": "../../packages/events" },
+    { "path": "../../packages/auth" }
+  ]
+}

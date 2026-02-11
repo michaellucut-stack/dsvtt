@@ -1,0 +1,28 @@
+{
+  "name": "@dsvtt/events",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Socket.IO event type definitions and Zod schemas for DSVTT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "rm -rf dist",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dsvtt/shared": "*",
+    "zod": "^3.23.8"
+  },
+  "files": [
+    "dist",
+    "src"
+  ]
+}

@@ -1,0 +1,71 @@
+/** Enumerated player roles for use in runtime checks. */
+export enum PlayerRoleEnum {
+  Director = 'director',
+  Player = 'player',
+}
+
+/**
+ * Socket.IO event names for the Phase 1 real-time protocol.
+ * Client-to-server and server-to-client events share this namespace.
+ */
+export enum SocketEvent {
+  // Room events
+  ROOM_JOIN = 'ROOM_JOIN',
+  ROOM_LEAVE = 'ROOM_LEAVE',
+  ROOM_CREATE = 'ROOM_CREATE',
+  ROOM_JOINED = 'ROOM_JOINED',
+  ROOM_LEFT = 'ROOM_LEFT',
+  ROOM_CREATED = 'ROOM_CREATED',
+
+  // Game lifecycle events
+  GAME_ACTION = 'GAME_ACTION',
+  GAME_START = 'GAME_START',
+  GAME_PAUSE = 'GAME_PAUSE',
+  GAME_STATE_UPDATE = 'GAME_STATE_UPDATE',
+  GAME_STARTED = 'GAME_STARTED',
+  GAME_PAUSED = 'GAME_PAUSED',
+
+  // Token events
+  TOKEN_MOVE = 'TOKEN_MOVE',
+  TOKEN_ADD = 'TOKEN_ADD',
+  TOKEN_REMOVE = 'TOKEN_REMOVE',
+  TOKEN_MOVED = 'TOKEN_MOVED',
+  TOKEN_ADDED = 'TOKEN_ADDED',
+  TOKEN_REMOVED = 'TOKEN_REMOVED',
+
+  // Dice events
+  DICE_ROLL = 'DICE_ROLL',
+  DICE_ROLL_PRIVATE = 'DICE_ROLL_PRIVATE',
+  DICE_RESULT = 'DICE_RESULT',
+  DICE_RESULT_PRIVATE = 'DICE_RESULT_PRIVATE',
+
+  // Chat events
+  CHAT_MESSAGE = 'CHAT_MESSAGE',
+  CHAT_WHISPER = 'CHAT_WHISPER',
+  CHAT_MESSAGE_BROADCAST = 'CHAT_MESSAGE_BROADCAST',
+  CHAT_WHISPER_RECEIVED = 'CHAT_WHISPER_RECEIVED',
+
+  // Turn events
+  TURN_END = 'TURN_END',
+  TURN_SKIP = 'TURN_SKIP',
+  TURN_CHANGED = 'TURN_CHANGED',
+  TURN_ORDER_UPDATED = 'TURN_ORDER_UPDATED',
+
+  // Fog of war events
+  FOG_UPDATE = 'FOG_UPDATE',
+  FOG_UPDATED = 'FOG_UPDATED',
+
+  // NPC events
+  NPC_ACTION = 'NPC_ACTION',
+  NPC_ACTION_BROADCAST = 'NPC_ACTION_BROADCAST',
+
+  // Map events
+  MAP_LOAD = 'MAP_LOAD',
+  MAP_UPDATE = 'MAP_UPDATE',
+  MAP_LOADED = 'MAP_LOADED',
+  MAP_UPDATED = 'MAP_UPDATED',
+
+  // Character events
+  CHARACTER_UPDATE = 'CHARACTER_UPDATE',
+  CHARACTER_UPDATED = 'CHARACTER_UPDATED',
+}
