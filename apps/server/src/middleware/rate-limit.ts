@@ -73,3 +73,14 @@ export function rateLimit(options: RateLimitOptions = {}) {
     next();
   };
 }
+
+// ── Named Rate-Limit Presets ─────────────────────────────────────────────────
+
+/** Strict rate limit for auth routes: 10 requests per minute. */
+export const authRateLimit = rateLimit({ windowMs: 60_000, maxRequests: 10 });
+
+/** Moderate rate limit for general API routes: 60 requests per minute. */
+export const apiRateLimit = rateLimit({ windowMs: 60_000, maxRequests: 60 });
+
+/** Relaxed rate limit for WebSocket / high-frequency routes: 120 requests per minute. */
+export const wsRateLimit = rateLimit({ windowMs: 60_000, maxRequests: 120 });

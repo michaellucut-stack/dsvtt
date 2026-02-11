@@ -21,8 +21,8 @@ export interface AuthResponse {
  * @param user - The user record to encode claims for.
  * @returns A pair of signed JWTs.
  */
-function issueTokens(user: { id: string; email: string; role: string }): AuthTokens {
-  const payload = { sub: user.id, email: user.email, role: user.role };
+function issueTokens(user: { id: string; email: string }, role = 'player'): AuthTokens {
+  const payload = { sub: user.id, email: user.email, role };
 
   const accessToken = jwt.sign(payload, config.jwtSecret, {
     expiresIn: config.jwtExpiresIn,
@@ -42,7 +42,6 @@ function serializeUser(user: {
   id: string;
   email: string;
   displayName: string;
-  role: string;
   createdAt: Date;
   updatedAt: Date;
 }): AuthResponse['user'] {
@@ -50,7 +49,7 @@ function serializeUser(user: {
     id: user.id,
     email: user.email,
     displayName: user.displayName,
-    role: user.role as User['role'],
+    role: 'player' as User['role'],
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };
@@ -79,7 +78,6 @@ export async function register(input: RegisterBody): Promise<AuthResponse> {
       email: input.email,
       passwordHash,
       displayName: input.displayName,
-      role: 'player',
     },
   });
 

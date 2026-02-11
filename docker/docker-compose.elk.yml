@@ -1,0 +1,64 @@
+# =============================================================================
+# DSVTT — ELK Stack (Elasticsearch, Logstash, Kibana) for Dev Monitoring
+# =============================================================================
+
+services:
+  elasticsearch:
+    image: elasticsearch:8.12.0
+    container_name: dsvtt-elasticsearch
+    restart: unless-stopped
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+      - ../elk/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+    networks:
+      - elk
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  logstash:
+    image: logstash:8.12.0
+    container_name: dsvtt-logstash
+    restart: unless-stopped
+    ports:
+      - "5044:5044"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - LS_JAVA_OPTS=-Xms256m -Xmx256m
+    volumes:
+      - ../elk/logstash/pipeline.conf:/usr/share/logstash/pipeline/pipeline.conf:ro
+    networks:
+      - elk
+
+  kibana:
+    image: kibana:8.12.0
+    container_name: dsvtt-kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - ../elk/kibana/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+    networks:
+      - elk
+
+volumes:
+  es_data:
+    driver: local
+
+networks:
+  elk:
+    driver: bridge

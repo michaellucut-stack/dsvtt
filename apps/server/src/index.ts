@@ -7,21 +7,60 @@ import { Server as SocketIOServer } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@dsvtt/events';
 import { config } from './config/index.js';
 import { authRouter } from './api/auth/auth.router.js';
+import { roomRouter } from './api/rooms/room.router.js';
+import { sessionRouter } from './api/sessions/session.router.js';
 import { notFound, errorHandler } from './middleware/error-handler.js';
-import { rateLimit } from './middleware/rate-limit.js';
+import { apiRateLimit, authRateLimit } from './middleware/rate-limit.js';
+import { requestId, wsOriginValidation } from './middleware/security.js';
 import { registerConnectionHandler } from './socket/connection.js';
+import { logger } from './utils/logger.js';
 
 // ── Express application ──────────────────────────────────────────────
 
 const app = express();
 
-// Security headers
-app.use(helmet());
+// Request ID — must be first so all downstream middleware/logs can use it
+app.use(requestId);
 
-// CORS
+// Enhanced security headers
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        connectSrc: ["'self'", 'ws:', 'wss:'],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+    hsts: {
+      maxAge: 31_536_000, // 1 year
+      includeSubDomains: true,
+      preload: true,
+    },
+    frameguard: { action: 'deny' },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  }),
+);
+
+// CORS — validate origin against whitelist
+const allowedOrigins = config.corsOrigin.split(',').map((o) => o.trim());
 app.use(
   cors({
-    origin: config.corsOrigin,
+    origin(origin, callback) {
+      // Allow requests with no origin (server-to-server, curl, health checks)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        logger.warn('CORS request rejected', { origin, context: 'security' });
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   }),
 );
@@ -31,8 +70,8 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-// Global rate limiter (relaxed — tighter limits on auth routes)
-app.use(rateLimit({ windowMs: 60_000, maxRequests: 120 }));
+// Global API rate limiter (moderate — tighter limits on auth routes)
+app.use(apiRateLimit);
 
 // ── Health check ─────────────────────────────────────────────────────
 
@@ -42,7 +81,9 @@ app.get('/health', (_req, res) => {
 
 // ── API routes ───────────────────────────────────────────────────────
 
-app.use('/api/auth', authRouter);
+app.use('/api/auth', authRateLimit, authRouter);
+app.use('/api/rooms', roomRouter);
+app.use('/api', sessionRouter);
 
 // ── Fallback handlers ────────────────────────────────────────────────
 
@@ -55,21 +96,26 @@ const server = http.createServer(app);
 
 const io = new SocketIOServer<ClientToServerEvents, ServerToClientEvents>(server, {
   cors: {
-    origin: config.corsOrigin,
+    origin: allowedOrigins,
     credentials: true,
   },
   pingInterval: 25_000,
   pingTimeout: 20_000,
 });
 
+// WebSocket origin validation — runs before auth middleware
+io.use(wsOriginValidation(allowedOrigins));
+
 registerConnectionHandler(io);
 
 // ── Start listening ──────────────────────────────────────────────────
 
 server.listen(config.port, () => {
-  console.log(
-    `[Server] Listening on port ${config.port} (env=${config.nodeEnv})`,
-  );
+  logger.info(`Server listening on port ${config.port}`, {
+    port: config.port,
+    env: config.nodeEnv,
+    context: 'server',
+  });
 });
 
 // ── Graceful shutdown ────────────────────────────────────────────────
@@ -78,20 +124,20 @@ server.listen(config.port, () => {
  * Gracefully close the HTTP server and Socket.IO connections, then exit.
  */
 function shutdown(signal: string): void {
-  console.log(`\n[Server] ${signal} received — shutting down gracefully…`);
+  logger.info(`${signal} received — shutting down gracefully`, { context: 'server' });
 
   io.close(() => {
-    console.log('[Server] Socket.IO closed');
+    logger.info('Socket.IO closed', { context: 'server' });
   });
 
   server.close(() => {
-    console.log('[Server] HTTP server closed');
+    logger.info('HTTP server closed', { context: 'server' });
     process.exit(0);
   });
 
   // Force exit after 10 seconds if graceful shutdown stalls
   setTimeout(() => {
-    console.error('[Server] Forced exit after timeout');
+    logger.error('Forced exit after timeout', { context: 'server' });
     process.exit(1);
   }, 10_000).unref();
 }

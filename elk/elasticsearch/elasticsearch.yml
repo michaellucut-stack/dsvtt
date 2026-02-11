@@ -1,0 +1,18 @@
+# =============================================================================
+# DSVTT — Elasticsearch Configuration (Development)
+# =============================================================================
+
+cluster.name: dsvtt-cluster
+node.name: dsvtt-es-node
+
+# Single-node discovery (no clustering for dev)
+discovery.type: single-node
+
+# Network — bind to all interfaces inside the container
+network.host: 0.0.0.0
+
+# Disable security for local development
+xpack.security.enabled: false
+xpack.security.enrollment.enabled: false
+xpack.security.http.ssl.enabled: false
+xpack.security.transport.ssl.enabled: false

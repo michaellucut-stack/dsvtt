@@ -1,0 +1,13 @@
+# =============================================================================
+# DSVTT — Kibana Configuration (Development)
+# =============================================================================
+
+server.name: dsvtt-kibana
+server.host: "0.0.0.0"
+server.port: 5601
+
+# Elasticsearch connection
+elasticsearch.hosts: ["http://elasticsearch:9200"]
+
+# Disable telemetry in dev
+telemetry.enabled: false
