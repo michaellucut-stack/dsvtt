@@ -17,7 +17,9 @@
   },
   "dependencies": {
     "@dsvtt/auth": "*",
+    "@dsvtt/dice-engine": "*",
     "@dsvtt/events": "*",
+    "@dsvtt/game-engine": "*",
     "@dsvtt/shared": "*",
     "@prisma/client": "^6.9.0",
     "cookie-parser": "^1.4.7",
