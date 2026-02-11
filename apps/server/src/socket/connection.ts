@@ -6,6 +6,7 @@ import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
 import { registerRoomEvents } from './room-events.js';
 import { registerGameEvents } from './game-events.js';
+import { registerMapEvents } from './map-events.js';
 
 /** Typed Socket.IO server instance. */
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -71,6 +72,7 @@ export function registerConnectionHandler(io: TypedServer): void {
     // Register domain-specific event handlers
     registerRoomEvents(io, socket);
     registerGameEvents(io, socket);
+    registerMapEvents(io, socket);
 
     socket.on('disconnect', (reason) => {
       logger.info('Socket disconnected', {

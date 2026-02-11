@@ -1,4 +1,5 @@
 import http from 'node:http';
+import path from 'node:path';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -9,11 +10,13 @@ import { config } from './config/index.js';
 import { authRouter } from './api/auth/auth.router.js';
 import { roomRouter } from './api/rooms/room.router.js';
 import { sessionRouter } from './api/sessions/session.router.js';
+import { mapRouter, mapDetailRouter } from './api/maps/map.router.js';
 import { notFound, errorHandler } from './middleware/error-handler.js';
 import { apiRateLimit, authRateLimit } from './middleware/rate-limit.js';
 import { requestId, wsOriginValidation } from './middleware/security.js';
 import { registerConnectionHandler } from './socket/connection.js';
 import { logger } from './utils/logger.js';
+import { ensureUploadDir } from './utils/upload.js';
 
 // ── Express application ──────────────────────────────────────────────
 
@@ -73,6 +76,11 @@ app.use(cookieParser());
 // Global API rate limiter (moderate — tighter limits on auth routes)
 app.use(apiRateLimit);
 
+// ── Static file serving (uploaded map backgrounds) ───────────────────
+
+ensureUploadDir();
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+
 // ── Health check ─────────────────────────────────────────────────────
 
 app.get('/health', (_req, res) => {
@@ -84,6 +92,8 @@ app.get('/health', (_req, res) => {
 app.use('/api/auth', authRateLimit, authRouter);
 app.use('/api/rooms', roomRouter);
 app.use('/api', sessionRouter);
+app.use('/api/sessions/:sessionId/maps', mapRouter);
+app.use('/api/maps', mapDetailRouter);
 
 // ── Fallback handlers ────────────────────────────────────────────────
 
