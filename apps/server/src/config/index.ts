@@ -1,4 +1,8 @@
-import 'dotenv/config';
+import { config as dotenvConfig } from 'dotenv';
+import { resolve } from 'node:path';
+
+// Load .env from monorepo root
+dotenvConfig({ path: resolve(import.meta.dirname, '../../../..', '.env') });
 
 /** Server configuration loaded from environment variables with sensible defaults. */
 export interface ServerConfig {

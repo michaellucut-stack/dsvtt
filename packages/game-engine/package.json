@@ -2,6 +2,7 @@
   "name": "@dsvtt/game-engine",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Game state engine with event sourcing for DSVTT",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

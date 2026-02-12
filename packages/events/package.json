@@ -2,6 +2,7 @@
   "name": "@dsvtt/events",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Socket.IO event type definitions and Zod schemas for DSVTT",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

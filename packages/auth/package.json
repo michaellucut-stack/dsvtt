@@ -2,6 +2,7 @@
   "name": "@dsvtt/auth",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Authentication, JWT, password hashing, and RBAC for DSVTT",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
