@@ -20,7 +20,9 @@ export {
   GRID_DEFAULT_SIZE,
   MAX_CHAT_MESSAGE_LENGTH,
   DICE_FORMULA_MAX_LENGTH,
+  GameEventType,
 } from './constants/index.js';
+export type { GameEventTypeValue } from './constants/index.js';
 
 // Enums
 export { PlayerRoleEnum, SocketEvent } from './enums/index.js';

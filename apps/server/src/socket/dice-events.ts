@@ -1,12 +1,13 @@
 import type { Server, Socket } from 'socket.io';
 import type { JwtPayload } from '@dsvtt/shared';
+import { GameEventType, DICE_FORMULA_MAX_LENGTH } from '@dsvtt/shared';
 import type { ClientToServerEvents, ServerToClientEvents } from '@dsvtt/events';
 import { diceRollSchema } from '@dsvtt/events';
 import { evaluateDice, DiceParseError } from '@dsvtt/dice-engine';
 import type { Prisma } from '@prisma/client';
-import { DICE_FORMULA_MAX_LENGTH } from '@dsvtt/shared';
 import { prisma } from '../config/prisma.js';
 import { logger } from '../utils/logger.js';
+import { logEvent } from '../services/event-store.js';
 
 /** Typed Socket.IO server instance. */
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -105,6 +106,15 @@ export function registerDiceEvents(io: TypedServer, socket: TypedSocket): void {
         })),
         total: diceResult.total,
       });
+
+      // Log event
+      logEvent({
+        sessionId,
+        eventType: GameEventType.DICE_ROLL,
+        payload: { rollId: record.id, formula, total: diceResult.total, playerName: dbUser.displayName },
+        actorId: user.sub,
+        actorType: 'PLAYER',
+      }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
     } catch (err) {
       logger.error('DICE_ROLL handler error', {
         context: 'socket',
@@ -196,6 +206,15 @@ export function registerDiceEvents(io: TypedServer, socket: TypedSocket): void {
           }
         }
       }
+
+      // Log event
+      logEvent({
+        sessionId,
+        eventType: GameEventType.DICE_ROLL_PRIVATE,
+        payload: { rollId: record.id, formula, total: diceResult.total, playerName: dbUser.displayName },
+        actorId: user.sub,
+        actorType: 'PLAYER',
+      }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
     } catch (err) {
       logger.error('DICE_ROLL_PRIVATE handler error', {
         context: 'socket',

@@ -115,7 +115,7 @@ model GameSession {
   endedAt    DateTime?
   eventCount Int           @default(0)
 
-  room         Room           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  room         Room            @relation(fields: [roomId], references: [id], onDelete: Cascade)
   eventLogs    GameEventLog[]
   maps         GameMap[]
   chatMessages ChatMessage[]
@@ -123,6 +123,7 @@ model GameSession {
   npcs         Npc[]
   characters   Character[]
   sharedNotes  SharedNote[]
+  snapshots    StateSnapshot[]
 
   @@index([roomId])
   @@index([status])
@@ -256,13 +257,14 @@ model Npc {
 }
 
 model Character {
-  id        String  @id @default(uuid()) @db.Uuid
-  sessionId String  @db.Uuid
-  userId    String  @db.Uuid
-  name      String
-  stats     Json    @default("{}")
-  notes     String?
-  inventory Json    @default("[]")
+  id           String                   @id @default(uuid()) @db.Uuid
+  sessionId    String                   @db.Uuid
+  userId       String                   @db.Uuid
+  name         String
+  stats        Json                     @default("{}")
+  notes        String?
+  inventory    Json                     @default("[]")
+  searchVector Unsupported("tsvector")?
 
   session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -273,16 +275,32 @@ model Character {
 }
 
 model SharedNote {
-  id        String   @id @default(uuid()) @db.Uuid
-  sessionId String   @db.Uuid
-  title     String
-  content   String
-  updatedBy String?
-  updatedAt DateTime @updatedAt
+  id           String                   @id @default(uuid()) @db.Uuid
+  sessionId    String                   @db.Uuid
+  title        String
+  content      String
+  updatedBy    String?
+  updatedAt    DateTime                 @updatedAt
+  searchVector Unsupported("tsvector")?
 
   session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
   @@index([updatedAt])
   @@map("shared_notes")
+}
+
+model StateSnapshot {
+  id             String   @id @default(uuid()) @db.Uuid
+  sessionId      String   @db.Uuid
+  sequenceNumber Int
+  state          Json
+  createdAt      DateTime @default(now())
+
+  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, sequenceNumber])
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("state_snapshots")
 }

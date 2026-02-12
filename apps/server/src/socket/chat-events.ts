@@ -1,11 +1,12 @@
 import type { Server, Socket } from 'socket.io';
 import type { JwtPayload } from '@dsvtt/shared';
+import { GameEventType, MAX_CHAT_MESSAGE_LENGTH } from '@dsvtt/shared';
 import type { ClientToServerEvents, ServerToClientEvents } from '@dsvtt/events';
 import { chatMessageSchema, chatWhisperSchema } from '@dsvtt/events';
-import { MAX_CHAT_MESSAGE_LENGTH } from '@dsvtt/shared';
 import type { ChatChannel } from '@prisma/client';
 import { prisma } from '../config/prisma.js';
 import { logger } from '../utils/logger.js';
+import { logEvent } from '../services/event-store.js';
 
 /** Typed Socket.IO server instance. */
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -97,6 +98,15 @@ export function registerChatEvents(io: TypedServer, socket: TypedSocket): void {
         content,
         timestamp: message.timestamp.toISOString(),
       });
+
+      // Log event
+      logEvent({
+        sessionId,
+        eventType: GameEventType.CHAT_MESSAGE,
+        payload: { messageId: message.id, channel, content, senderName: dbUser.displayName },
+        actorId: user.sub,
+        actorType: 'PLAYER',
+      }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
     } catch (err) {
       logger.error('CHAT_MESSAGE handler error', {
         context: 'socket',
@@ -180,6 +190,15 @@ export function registerChatEvents(io: TypedServer, socket: TypedSocket): void {
           roomSocket.emit('CHAT_WHISPER_RECEIVED', whisperPayload);
         }
       }
+
+      // Log event
+      logEvent({
+        sessionId,
+        eventType: GameEventType.CHAT_WHISPER,
+        payload: { messageId: message.id, recipientId, content, senderName: dbUser.displayName },
+        actorId: user.sub,
+        actorType: 'PLAYER',
+      }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
     } catch (err) {
       logger.error('CHAT_WHISPER handler error', {
         context: 'socket',

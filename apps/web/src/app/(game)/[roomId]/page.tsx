@@ -19,6 +19,7 @@ import { TurnTracker } from '@/components/game/turn-tracker';
 import { DirectorPanel } from '@/components/game/director-panel';
 import { CharacterSheet } from '@/components/game/character-sheet';
 import { SharedNotes } from '@/components/game/shared-notes';
+import { SearchBar } from '@/components/game/search-bar';
 import { ResizablePanels } from '@/components/layout/resizable-panels';
 import { Loading } from '@/components/ui/loading';
 
@@ -258,6 +259,7 @@ export default function GameRoomPage() {
         </div>
 
         <div className="flex items-center gap-4">
+          <SearchBar sessionId={sessionId} />
           <ConnectionIndicator />
           <button
             type="button"

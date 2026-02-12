@@ -1,5 +1,6 @@
 import type { Server, Socket } from 'socket.io';
 import type { JwtPayload } from '@dsvtt/shared';
+import { GameEventType } from '@dsvtt/shared';
 import type { ClientToServerEvents, ServerToClientEvents } from '@dsvtt/events';
 import {
   mapLoadSchema,
@@ -12,6 +13,7 @@ import {
 import { prisma } from '../config/prisma.js';
 import { logger } from '../utils/logger.js';
 import * as mapService from '../api/maps/map.service.js';
+import { logEvent } from '../services/event-store.js';
 
 /** Typed Socket.IO server instance. */
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -38,6 +40,17 @@ async function getRoomIdForMap(mapId: string): Promise<string | null> {
     include: { session: { select: { roomId: true } } },
   });
   return map?.session.roomId ?? null;
+}
+
+/**
+ * Resolve the session ID for a given map.
+ */
+async function getSessionIdForMap(mapId: string): Promise<string | null> {
+  const map = await prisma.gameMap.findUnique({
+    where: { id: mapId },
+    select: { sessionId: true },
+  });
+  return map?.sessionId ?? null;
 }
 
 /**
@@ -168,6 +181,18 @@ export function registerMapEvents(io: TypedServer, socket: TypedSocket): void {
         changes: changes as Record<string, unknown>,
         updatedBy: user.sub,
       });
+
+      // Log event
+      const sessionId = await getSessionIdForMap(mapId);
+      if (sessionId) {
+        logEvent({
+          sessionId,
+          eventType: GameEventType.MAP_UPDATED,
+          payload: { mapId, changes: changes as Record<string, unknown> },
+          actorId: user.sub,
+          actorType: 'DIRECTOR',
+        }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
+      }
     } catch (err) {
       logger.error('MAP_UPDATE handler error', {
         context: 'socket',
@@ -209,6 +234,18 @@ export function registerMapEvents(io: TypedServer, socket: TypedSocket): void {
         y,
         movedBy: user.sub,
       });
+
+      // Log event
+      const sessionId = await getSessionIdForMap(mapId);
+      if (sessionId) {
+        logEvent({
+          sessionId,
+          eventType: GameEventType.TOKEN_MOVED,
+          payload: { tokenId, mapId, x, y },
+          actorId: user.sub,
+          actorType: role as 'DIRECTOR' | 'PLAYER',
+        }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
+      }
     } catch (err) {
       logger.error('TOKEN_MOVE handler error', {
         context: 'socket',
@@ -278,6 +315,18 @@ export function registerMapEvents(io: TypedServer, socket: TypedSocket): void {
         ownerId: token.ownerId,
       });
 
+      // Log event
+      const sessionId = await getSessionIdForMap(mapId);
+      if (sessionId) {
+        logEvent({
+          sessionId,
+          eventType: GameEventType.TOKEN_ADDED,
+          payload: { tokenId: token.id, mapId, name, x, y, width, height, layer, visible, ownerId: user.sub },
+          actorId: user.sub,
+          actorType: 'DIRECTOR',
+        }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
+      }
+
       callback({ ok: true, tokenId: token.id });
     } catch (err) {
       logger.error('TOKEN_ADD handler error', {
@@ -312,6 +361,18 @@ export function registerMapEvents(io: TypedServer, socket: TypedSocket): void {
         mapId,
         removedBy: user.sub,
       });
+
+      // Log event
+      const sessionId = await getSessionIdForMap(mapId);
+      if (sessionId) {
+        logEvent({
+          sessionId,
+          eventType: GameEventType.TOKEN_REMOVED,
+          payload: { tokenId, mapId },
+          actorId: user.sub,
+          actorType: 'DIRECTOR',
+        }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
+      }
     } catch (err) {
       logger.error('TOKEN_REMOVE handler error', {
         context: 'socket',
@@ -346,6 +407,18 @@ export function registerMapEvents(io: TypedServer, socket: TypedSocket): void {
         revealed,
         updatedBy: user.sub,
       });
+
+      // Log event
+      const sessionId = await getSessionIdForMap(mapId);
+      if (sessionId) {
+        logEvent({
+          sessionId,
+          eventType: GameEventType.FOG_UPDATED,
+          payload: { mapId, regionId, revealed },
+          actorId: user.sub,
+          actorType: 'DIRECTOR',
+        }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
+      }
     } catch (err) {
       logger.error('FOG_UPDATE handler error', {
         context: 'socket',

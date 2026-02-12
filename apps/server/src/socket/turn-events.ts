@@ -1,10 +1,12 @@
 import type { Server, Socket } from 'socket.io';
 import type { JwtPayload } from '@dsvtt/shared';
+import { GameEventType } from '@dsvtt/shared';
 import type { ClientToServerEvents, ServerToClientEvents } from '@dsvtt/events';
 import { turnEndSchema, turnSkipSchema } from '@dsvtt/events';
 import { prisma } from '../config/prisma.js';
 import { logger } from '../utils/logger.js';
 import * as turnService from '../api/turns/turn.service.js';
+import { logEvent } from '../services/event-store.js';
 
 /** Typed Socket.IO server instance. */
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -73,6 +75,15 @@ export function registerTurnEvents(io: TypedServer, socket: TypedSocket): void {
         currentPlayerId,
         roundNumber: state.roundNumber,
       });
+
+      // Log event
+      logEvent({
+        sessionId,
+        eventType: GameEventType.TURN_ADVANCED,
+        payload: { currentPlayerId, roundNumber: state.roundNumber },
+        actorId: user.sub,
+        actorType: 'DIRECTOR',
+      }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
     } catch (err) {
       logger.error('TURN_END handler error', {
         context: 'socket',
@@ -119,6 +130,15 @@ export function registerTurnEvents(io: TypedServer, socket: TypedSocket): void {
         currentPlayerId,
         roundNumber: state.roundNumber,
       });
+
+      // Log event
+      logEvent({
+        sessionId,
+        eventType: GameEventType.TURN_SKIPPED,
+        payload: { currentPlayerId, roundNumber: state.roundNumber },
+        actorId: user.sub,
+        actorType: 'DIRECTOR',
+      }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
     } catch (err) {
       logger.error('TURN_SKIP handler error', {
         context: 'socket',

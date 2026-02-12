@@ -1,10 +1,12 @@
 import type { Server, Socket } from 'socket.io';
 import type { JwtPayload } from '@dsvtt/shared';
+import { GameEventType } from '@dsvtt/shared';
 import type { ClientToServerEvents, ServerToClientEvents } from '@dsvtt/events';
 import { characterUpdateSchema } from '@dsvtt/events';
 import { prisma } from '../config/prisma.js';
 import { logger } from '../utils/logger.js';
 import * as characterService from '../api/characters/character.service.js';
+import { logEvent } from '../services/event-store.js';
 
 /** Typed Socket.IO server instance. */
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -103,6 +105,16 @@ export function registerCharacterEvents(io: TypedServer, socket: TypedSocket): v
         changes,
         updatedBy: user.sub,
       });
+
+      // Log event
+      const actorType = isDirector ? 'DIRECTOR' : 'PLAYER';
+      logEvent({
+        sessionId,
+        eventType: GameEventType.CHARACTER_UPDATED,
+        payload: { characterId, changes },
+        actorId: user.sub,
+        actorType,
+      }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
     } catch (err) {
       logger.error('CHARACTER_UPDATE handler error', {
         context: 'socket',

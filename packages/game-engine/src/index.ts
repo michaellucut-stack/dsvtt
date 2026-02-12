@@ -13,3 +13,4 @@ export { TurnManager } from './turns/index.js';
 // Event sourcing
 export type { StoredEvent, StateSnapshot, EventReducer } from './events/index.js';
 export { applyEvent, replayEvents, eventReducers } from './events/index.js';
+export { registerAllReducers } from './events/reducers.js';

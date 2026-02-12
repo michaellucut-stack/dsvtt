@@ -1,10 +1,12 @@
 import type { Server, Socket } from 'socket.io';
 import type { JwtPayload } from '@dsvtt/shared';
+import { GameEventType } from '@dsvtt/shared';
 import type { ClientToServerEvents, ServerToClientEvents } from '@dsvtt/events';
 import { npcActionSchema } from '@dsvtt/events';
 import { prisma } from '../config/prisma.js';
 import { logger } from '../utils/logger.js';
 import type { NpcItem } from '../api/npcs/npc.service.js';
+import { logEvent } from '../services/event-store.js';
 
 /** Typed Socket.IO server instance. */
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -124,6 +126,15 @@ export function registerNpcEvents(io: TypedServer, socket: TypedSocket): void {
         actionType,
         data,
       });
+
+      // Log event
+      logEvent({
+        sessionId,
+        eventType: GameEventType.NPC_ACTION,
+        payload: { npcId, npcName: npc.name, actionType, data },
+        actorId: user.sub,
+        actorType: 'DIRECTOR',
+      }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
     } catch (err) {
       logger.error('NPC_ACTION handler error', {
         context: 'socket',

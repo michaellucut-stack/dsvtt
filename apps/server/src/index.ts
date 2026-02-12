@@ -17,12 +17,19 @@ import { turnRouter } from './api/turns/turn.router.js';
 import { npcRouter, npcDetailRouter } from './api/npcs/npc.router.js';
 import { characterRouter, characterDetailRouter } from './api/characters/character.router.js';
 import { notesRouter, notesDetailRouter } from './api/notes/notes.router.js';
+import { replayRouter } from './api/replay/replay.router.js';
+import { searchRouter } from './api/search/search.router.js';
+import { registerAllReducers } from '@dsvtt/game-engine';
 import { notFound, errorHandler } from './middleware/error-handler.js';
 import { apiRateLimit, authRateLimit } from './middleware/rate-limit.js';
 import { requestId, wsOriginValidation } from './middleware/security.js';
 import { registerConnectionHandler } from './socket/connection.js';
 import { logger } from './utils/logger.js';
 import { ensureUploadDir } from './utils/upload.js';
+
+// ── Register event reducers for replay/snapshot system ──────────────
+
+registerAllReducers();
 
 // ── Express application ──────────────────────────────────────────────
 
@@ -109,6 +116,8 @@ app.use('/api/sessions/:sessionId/characters', characterRouter);
 app.use('/api/characters', characterDetailRouter);
 app.use('/api/sessions/:sessionId/notes', notesRouter);
 app.use('/api/notes', notesDetailRouter);
+app.use('/api/sessions/:sessionId/replay', replayRouter);
+app.use('/api/sessions/:sessionId/search', searchRouter);
 
 // ── Fallback handlers ────────────────────────────────────────────────
 

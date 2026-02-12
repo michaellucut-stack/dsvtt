@@ -15,3 +15,7 @@ export const MAX_CHAT_MESSAGE_LENGTH = 2000;
 
 /** Maximum character length for a dice formula string. */
 export const DICE_FORMULA_MAX_LENGTH = 100;
+
+// Event sourcing
+export { GameEventType } from './event-types.js';
+export type { GameEventTypeValue } from './event-types.js';

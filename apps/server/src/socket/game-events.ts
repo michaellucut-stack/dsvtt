@@ -1,10 +1,11 @@
 import type { Server, Socket } from 'socket.io';
 import type { JwtPayload } from '@dsvtt/shared';
+import { GameEventType } from '@dsvtt/shared';
 import type { ClientToServerEvents, ServerToClientEvents } from '@dsvtt/events';
 import { gameStartSchema, gamePauseSchema, gameActionSchema } from '@dsvtt/events';
-import type { Prisma } from '@prisma/client';
 import { prisma } from '../config/prisma.js';
 import { logger } from '../utils/logger.js';
+import { logEvent } from '../services/event-store.js';
 
 /** Typed Socket.IO server instance. */
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -88,6 +89,15 @@ export function registerGameEvents(io: TypedServer, socket: TypedSocket): void {
         status: 'active',
       });
 
+      // Log event
+      logEvent({
+        sessionId: session.id,
+        eventType: GameEventType.GAME_STARTED,
+        payload: { roomId },
+        actorId: user.sub,
+        actorType: 'DIRECTOR',
+      }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
+
       callback({ ok: true, sessionId: session.id });
     } catch (err) {
       logger.error('GAME_START handler error', { context: 'socket', error: String(err) });
@@ -127,6 +137,15 @@ export function registerGameEvents(io: TypedServer, socket: TypedSocket): void {
 
       // Broadcast to all room members
       io.to(session.roomId).emit('GAME_PAUSED', { sessionId });
+
+      // Log event
+      logEvent({
+        sessionId,
+        eventType: GameEventType.GAME_PAUSED,
+        payload: {},
+        actorId: user.sub,
+        actorType: 'DIRECTOR',
+      }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
     } catch (err) {
       logger.error('GAME_PAUSE handler error', { context: 'socket', error: String(err) });
     }
@@ -163,23 +182,14 @@ export function registerGameEvents(io: TypedServer, socket: TypedSocket): void {
       // Determine actor type based on room role
       const actorType = membership.role === 'DIRECTOR' ? 'DIRECTOR' : 'PLAYER';
 
-      // Log the event (get next sequence number atomically)
-      const [eventLog] = await prisma.$transaction([
-        prisma.gameEventLog.create({
-          data: {
-            sessionId,
-            sequenceNumber: session.eventCount + 1,
-            eventType: actionType,
-            payload: data as unknown as Prisma.InputJsonValue,
-            actorId: user.sub,
-            actorType,
-          },
-        }),
-        prisma.gameSession.update({
-          where: { id: sessionId },
-          data: { eventCount: { increment: 1 } },
-        }),
-      ]);
+      // Log the event via centralized event store
+      const eventLog = await logEvent({
+        sessionId,
+        eventType: actionType,
+        payload: data as Record<string, unknown>,
+        actorId: user.sub,
+        actorType,
+      });
 
       // Broadcast state update to all room members
       io.to(session.roomId).emit('GAME_STATE_UPDATE', {
