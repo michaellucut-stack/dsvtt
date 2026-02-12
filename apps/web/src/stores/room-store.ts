@@ -30,11 +30,22 @@ interface CreateRoomInput {
   maxPlayers: number;
 }
 
+interface SessionItem {
+  id: string;
+  roomId: string;
+  status: string;
+  startedAt: string;
+  endedAt: string | null;
+  eventCount: number;
+}
+
 interface RoomState {
   /** List of rooms for the lobby view. */
   rooms: Room[];
   /** Currently viewed / joined room. */
   currentRoom: Room | null;
+  /** Active session ID for the current room. */
+  activeSessionId: string | null;
   /** Loading flag for room list. */
   loading: boolean;
   /** Error message. */
@@ -47,7 +58,9 @@ interface RoomState {
   createRoom: (input: CreateRoomInput) => Promise<Room>;
   joinRoom: (roomId: string) => Promise<void>;
   leaveRoom: (roomId: string) => Promise<void>;
-  startGame: (roomId: string) => Promise<void>;
+  startGame: (roomId: string, mapFile?: File) => Promise<void>;
+  /** Fetch the active session for a room. */
+  fetchActiveSession: (roomId: string) => Promise<string | null>;
   clearCurrentRoom: () => void;
   clearError: () => void;
 
@@ -58,6 +71,7 @@ interface RoomState {
 export const useRoomStore = create<RoomState>()((set, get) => ({
   rooms: [],
   currentRoom: null,
+  activeSessionId: null,
   loading: false,
   error: null,
 
@@ -125,11 +139,31 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
     }
   },
 
-  async startGame(roomId: string) {
+  async startGame(roomId: string, mapFile?: File) {
     set({ loading: true, error: null });
     try {
-      await apiClient.post(`/api/rooms/${roomId}/sessions`);
-      // Optimistically update room status so the button disappears immediately
+      // 1. Create the session
+      const sessionRes = await apiClient.post<{
+        ok: boolean;
+        data: { id: string };
+      }>(`/api/rooms/${roomId}/sessions`);
+      const sessionId = sessionRes.data.id;
+
+      // 2. If a map file was provided, create a map and upload the background
+      if (mapFile) {
+        const mapRes = await apiClient.post<{
+          ok: boolean;
+          data: { id: string };
+        }>(`/api/sessions/${sessionId}/maps`, {
+          name: 'Battle Map',
+          gridWidth: 20,
+          gridHeight: 15,
+        });
+        await apiClient.upload(`/api/maps/${mapRes.data.id}/upload`, mapFile);
+      }
+
+      // Store the session ID and optimistically update room status
+      set({ activeSessionId: sessionId });
       const currentRoom = get().currentRoom;
       if (currentRoom?.id === roomId) {
         set({ currentRoom: { ...currentRoom, status: 'ACTIVE' as RoomStatus } });
@@ -143,8 +177,22 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
     }
   },
 
+  async fetchActiveSession(roomId: string) {
+    try {
+      const res = await apiClient.get<{ ok: boolean; data: SessionItem[] }>(
+        `/api/rooms/${roomId}/sessions`,
+      );
+      const active = res.data.find((s) => s.status === 'ACTIVE' || s.status === 'PAUSED');
+      const sessionId = active?.id ?? null;
+      set({ activeSessionId: sessionId });
+      return sessionId;
+    } catch {
+      return null;
+    }
+  },
+
   clearCurrentRoom() {
-    set({ currentRoom: null });
+    set({ currentRoom: null, activeSessionId: null });
   },
 
   clearError() {
@@ -251,11 +299,12 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
         ),
       }));
 
-      // Update current room status
+      // Update current room status and store the session ID
       const currentRoom = get().currentRoom;
       if (currentRoom?.id === payload.roomId) {
         set({
           currentRoom: { ...currentRoom, status: payload.status },
+          activeSessionId: payload.sessionId,
         });
       }
     };

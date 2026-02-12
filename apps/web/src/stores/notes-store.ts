@@ -87,10 +87,10 @@ export const useNotesStore = create<NotesState>()((set, get) => ({
   async fetchNotes(sessionId: string) {
     set({ loading: true, error: null });
     try {
-      const notes = await apiClient.get<SharedNote[]>(
+      const res = await apiClient.get<{ ok: boolean; data: SharedNote[] }>(
         `/api/sessions/${sessionId}/notes`,
       );
-      set({ notes, loading: false });
+      set({ notes: res.data, loading: false });
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : 'Failed to fetch notes',
@@ -102,18 +102,18 @@ export const useNotesStore = create<NotesState>()((set, get) => ({
   async createNote(input: CreateNoteInput) {
     set({ error: null });
     try {
-      const note = await apiClient.post<SharedNote>(
+      const res = await apiClient.post<{ ok: boolean; data: SharedNote }>(
         `/api/sessions/${input.sessionId}/notes`,
         input,
       );
+      const note = res.data;
       set((state) => ({
         notes: [...state.notes, note],
         activeNote: note,
       }));
       return note;
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to create note';
+      const message = err instanceof Error ? err.message : 'Failed to create note';
       set({ error: message });
       throw err;
     }
@@ -124,26 +124,23 @@ export const useNotesStore = create<NotesState>()((set, get) => ({
 
     // Optimistic update
     set((state) => {
-      const updater = (n: SharedNote) =>
-        n.id === noteId ? { ...n, ...changes } : n;
+      const updater = (n: SharedNote) => (n.id === noteId ? { ...n, ...changes } : n);
       return {
         notes: state.notes.map(updater),
         activeNote:
-          state.activeNote?.id === noteId
-            ? { ...state.activeNote, ...changes }
-            : state.activeNote,
+          state.activeNote?.id === noteId ? { ...state.activeNote, ...changes } : state.activeNote,
       };
     });
 
     try {
-      const updated = await apiClient.patch<SharedNote>(
+      const res = await apiClient.patch<{ ok: boolean; data: SharedNote }>(
         `/api/notes/${noteId}`,
         changes,
       );
+      const updated = res.data;
       set((state) => ({
         notes: state.notes.map((n) => (n.id === noteId ? updated : n)),
-        activeNote:
-          state.activeNote?.id === noteId ? updated : state.activeNote,
+        activeNote: state.activeNote?.id === noteId ? updated : state.activeNote,
       }));
     } catch (err) {
       set({
@@ -158,8 +155,7 @@ export const useNotesStore = create<NotesState>()((set, get) => ({
       await apiClient.delete(`/api/notes/${noteId}`);
       set((state) => ({
         notes: state.notes.filter((n) => n.id !== noteId),
-        activeNote:
-          state.activeNote?.id === noteId ? null : state.activeNote,
+        activeNote: state.activeNote?.id === noteId ? null : state.activeNote,
       }));
     } catch (err) {
       set({
@@ -211,9 +207,7 @@ export const useNotesStore = create<NotesState>()((set, get) => ({
         return {
           notes: state.notes.map(updater),
           activeNote:
-            state.activeNote?.id === noteId
-              ? updater(state.activeNote)
-              : state.activeNote,
+            state.activeNote?.id === noteId ? updater(state.activeNote) : state.activeNote,
         };
       });
     };

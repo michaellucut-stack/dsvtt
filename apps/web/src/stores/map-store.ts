@@ -91,6 +91,9 @@ interface MapState {
   /** Toggle grid visibility. */
   toggleGrid: () => void;
 
+  /** Fetch the first map for a session and load its state. */
+  fetchSessionMap: (sessionId: string) => Promise<void>;
+
   /** Clear the current map state. */
   clearMap: () => void;
 
@@ -122,9 +125,10 @@ export const useMapStore = create<MapState>()((set, get) => ({
   async fetchMapState(mapId: string) {
     set({ loading: true, error: null });
     try {
-      const data = await apiClient.get<MapStateResponse>(
+      const res = await apiClient.get<{ ok: boolean; data: MapStateResponse }>(
         `/api/maps/${mapId}/state`,
       );
+      const data = res.data;
       set({
         currentMap: {
           id: data.map.id,
@@ -140,8 +144,29 @@ export const useMapStore = create<MapState>()((set, get) => ({
       });
     } catch (err) {
       set({
-        error:
-          err instanceof Error ? err.message : 'Failed to fetch map state',
+        error: err instanceof Error ? err.message : 'Failed to fetch map state',
+        loading: false,
+      });
+    }
+  },
+
+  async fetchSessionMap(sessionId: string) {
+    set({ loading: true, error: null });
+    try {
+      const res = await apiClient.get<{
+        ok: boolean;
+        data: Array<{ id: string }>;
+      }>(`/api/sessions/${sessionId}/maps`);
+      const maps = res.data;
+      if (maps.length > 0 && maps[0]) {
+        // Load the first map's full state
+        await get().fetchMapState(maps[0].id);
+      } else {
+        set({ currentMap: null, tokens: [], fogRegions: [], loading: false });
+      }
+    } catch (err) {
+      set({
+        error: err instanceof Error ? err.message : 'Failed to fetch maps',
         loading: false,
       });
     }
@@ -153,9 +178,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
 
     // Optimistic update
     set({
-      tokens: tokens.map((t) =>
-        t.id === tokenId ? { ...t, x, y } : t,
-      ),
+      tokens: tokens.map((t) => (t.id === tokenId ? { ...t, x, y } : t)),
     });
 
     // Emit via Socket.IO
@@ -194,9 +217,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
 
     // Optimistic update
     set({
-      fogRegions: fogRegions.map((r) =>
-        r.id === regionId ? { ...r, revealed } : r,
-      ),
+      fogRegions: fogRegions.map((r) => (r.id === regionId ? { ...r, revealed } : r)),
     });
 
     const socket = getSocket();
@@ -244,9 +265,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
     const handleTokenMoved = (payload: TokenMovedPayload) => {
       set((state) => ({
         tokens: state.tokens.map((t) =>
-          t.id === payload.tokenId
-            ? { ...t, x: payload.x, y: payload.y }
-            : t,
+          t.id === payload.tokenId ? { ...t, x: payload.x, y: payload.y } : t,
         ),
       }));
     };
@@ -281,9 +300,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
     const handleFogUpdated = (payload: FogUpdatedPayload) => {
       set((state) => ({
         fogRegions: state.fogRegions.map((r) =>
-          r.id === payload.regionId
-            ? { ...r, revealed: payload.revealed }
-            : r,
+          r.id === payload.regionId ? { ...r, revealed: payload.revealed } : r,
         ),
       }));
     };

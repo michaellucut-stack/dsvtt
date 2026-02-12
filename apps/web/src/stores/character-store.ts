@@ -64,10 +64,7 @@ interface CharacterState {
   createCharacter: (input: CreateCharacterInput) => Promise<Character>;
 
   /** Update an existing character. */
-  updateCharacter: (
-    characterId: string,
-    changes: UpdateCharacterInput,
-  ) => Promise<void>;
+  updateCharacter: (characterId: string, changes: UpdateCharacterInput) => Promise<void>;
 
   /** Delete a character. */
   deleteCharacter: (characterId: string) => Promise<void>;
@@ -93,14 +90,13 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
   async fetchCharacters(sessionId: string) {
     set({ loading: true, error: null });
     try {
-      const characters = await apiClient.get<Character[]>(
+      const res = await apiClient.get<{ ok: boolean; data: Character[] }>(
         `/api/sessions/${sessionId}/characters`,
       );
-      set({ characters, loading: false });
+      set({ characters: res.data, loading: false });
     } catch (err) {
       set({
-        error:
-          err instanceof Error ? err.message : 'Failed to fetch characters',
+        error: err instanceof Error ? err.message : 'Failed to fetch characters',
         loading: false,
       });
     }
@@ -109,18 +105,18 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
   async createCharacter(input: CreateCharacterInput) {
     set({ error: null });
     try {
-      const character = await apiClient.post<Character>(
+      const res = await apiClient.post<{ ok: boolean; data: Character }>(
         `/api/sessions/${input.sessionId}/characters`,
         input,
       );
+      const character = res.data;
       set((state) => ({
         characters: [...state.characters, character],
         myCharacter: character,
       }));
       return character;
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to create character';
+      const message = err instanceof Error ? err.message : 'Failed to create character';
       set({ error: message });
       throw err;
     }
@@ -131,8 +127,7 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
 
     // Optimistic update
     set((state) => {
-      const updater = (c: Character) =>
-        c.id === characterId ? { ...c, ...changes } : c;
+      const updater = (c: Character) => (c.id === characterId ? { ...c, ...changes } : c);
       return {
         characters: state.characters.map(updater),
         myCharacter:
@@ -143,10 +138,11 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
     });
 
     try {
-      const updated = await apiClient.patch<Character>(
+      const res = await apiClient.patch<{ ok: boolean; data: Character }>(
         `/api/characters/${characterId}`,
         changes,
       );
+      const updated = res.data;
 
       // Broadcast update via Socket.IO
       const { myCharacter } = get();
@@ -160,17 +156,13 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
       }
 
       set((state) => ({
-        characters: state.characters.map((c) =>
-          c.id === characterId ? updated : c,
-        ),
-        myCharacter:
-          state.myCharacter?.id === characterId ? updated : state.myCharacter,
+        characters: state.characters.map((c) => (c.id === characterId ? updated : c)),
+        myCharacter: state.myCharacter?.id === characterId ? updated : state.myCharacter,
       }));
     } catch (err) {
       // Revert optimistic update by re-fetching
       set({
-        error:
-          err instanceof Error ? err.message : 'Failed to update character',
+        error: err instanceof Error ? err.message : 'Failed to update character',
       });
     }
   },
@@ -181,13 +173,11 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
       await apiClient.delete(`/api/characters/${characterId}`);
       set((state) => ({
         characters: state.characters.filter((c) => c.id !== characterId),
-        myCharacter:
-          state.myCharacter?.id === characterId ? null : state.myCharacter,
+        myCharacter: state.myCharacter?.id === characterId ? null : state.myCharacter,
       }));
     } catch (err) {
       set({
-        error:
-          err instanceof Error ? err.message : 'Failed to delete character',
+        error: err instanceof Error ? err.message : 'Failed to delete character',
       });
     }
   },
@@ -212,9 +202,7 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
       const { characterId, changes } = payload;
 
       set((state) => ({
-        characters: state.characters.map((c) =>
-          c.id === characterId ? { ...c, ...changes } : c,
-        ),
+        characters: state.characters.map((c) => (c.id === characterId ? { ...c, ...changes } : c)),
         myCharacter:
           state.myCharacter?.id === characterId
             ? { ...state.myCharacter, ...(changes as Partial<Character>) }

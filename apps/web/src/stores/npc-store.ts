@@ -84,10 +84,10 @@ export const useNpcStore = create<NpcState>()((set, get) => ({
   async fetchNpcs(sessionId: string) {
     set({ loading: true, error: null });
     try {
-      const npcs = await apiClient.get<Npc[]>(
+      const res = await apiClient.get<{ ok: boolean; data: Npc[] }>(
         `/api/sessions/${sessionId}/npcs`,
       );
-      set({ npcs, loading: false });
+      set({ npcs: res.data, loading: false });
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : 'Failed to fetch NPCs',
@@ -99,15 +99,15 @@ export const useNpcStore = create<NpcState>()((set, get) => ({
   async createNpc(input: CreateNpcInput) {
     set({ error: null });
     try {
-      const npc = await apiClient.post<Npc>(
+      const res = await apiClient.post<{ ok: boolean; data: Npc }>(
         `/api/sessions/${input.sessionId}/npcs`,
         input,
       );
+      const npc = res.data;
       set((state) => ({ npcs: [...state.npcs, npc] }));
       return npc;
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to create NPC';
+      const message = err instanceof Error ? err.message : 'Failed to create NPC';
       set({ error: message });
       throw err;
     }
@@ -116,14 +116,11 @@ export const useNpcStore = create<NpcState>()((set, get) => ({
   async updateNpc(npcId: string, changes: UpdateNpcInput) {
     set({ error: null });
     try {
-      const updated = await apiClient.patch<Npc>(
-        `/api/npcs/${npcId}`,
-        changes,
-      );
+      const res = await apiClient.patch<{ ok: boolean; data: Npc }>(`/api/npcs/${npcId}`, changes);
+      const updated = res.data;
       set((state) => ({
         npcs: state.npcs.map((n) => (n.id === npcId ? updated : n)),
-        selectedNpc:
-          state.selectedNpc?.id === npcId ? updated : state.selectedNpc,
+        selectedNpc: state.selectedNpc?.id === npcId ? updated : state.selectedNpc,
       }));
     } catch (err) {
       set({
@@ -138,8 +135,7 @@ export const useNpcStore = create<NpcState>()((set, get) => ({
       await apiClient.delete(`/api/npcs/${npcId}`);
       set((state) => ({
         npcs: state.npcs.filter((n) => n.id !== npcId),
-        selectedNpc:
-          state.selectedNpc?.id === npcId ? null : state.selectedNpc,
+        selectedNpc: state.selectedNpc?.id === npcId ? null : state.selectedNpc,
       }));
     } catch (err) {
       set({
@@ -151,18 +147,17 @@ export const useNpcStore = create<NpcState>()((set, get) => ({
   async assignToken(npcId: string, tokenId: string | null) {
     set({ error: null });
     try {
-      const updated = await apiClient.patch<Npc>(`/api/npcs/${npcId}`, {
+      const res = await apiClient.patch<{ ok: boolean; data: Npc }>(`/api/npcs/${npcId}`, {
         tokenId,
       });
+      const updated = res.data;
       set((state) => ({
         npcs: state.npcs.map((n) => (n.id === npcId ? updated : n)),
-        selectedNpc:
-          state.selectedNpc?.id === npcId ? updated : state.selectedNpc,
+        selectedNpc: state.selectedNpc?.id === npcId ? updated : state.selectedNpc,
       }));
     } catch (err) {
       set({
-        error:
-          err instanceof Error ? err.message : 'Failed to assign token',
+        error: err instanceof Error ? err.message : 'Failed to assign token',
       });
     }
   },
@@ -198,9 +193,7 @@ export const useNpcStore = create<NpcState>()((set, get) => ({
         case 'NPC_UPDATED': {
           const updates = data as unknown as Partial<Npc>;
           set((state) => ({
-            npcs: state.npcs.map((n) =>
-              n.id === npcId ? { ...n, ...updates } : n,
-            ),
+            npcs: state.npcs.map((n) => (n.id === npcId ? { ...n, ...updates } : n)),
             selectedNpc:
               state.selectedNpc?.id === npcId
                 ? { ...state.selectedNpc, ...updates }
@@ -211,8 +204,7 @@ export const useNpcStore = create<NpcState>()((set, get) => ({
         case 'NPC_DELETED': {
           set((state) => ({
             npcs: state.npcs.filter((n) => n.id !== npcId),
-            selectedNpc:
-              state.selectedNpc?.id === npcId ? null : state.selectedNpc,
+            selectedNpc: state.selectedNpc?.id === npcId ? null : state.selectedNpc,
           }));
           break;
         }

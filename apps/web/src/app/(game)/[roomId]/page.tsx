@@ -142,25 +142,33 @@ export default function GameRoomPage() {
   const [activeTab, setActiveTab] = useState<SidebarTab>('chat');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  const activeSessionId = useRoomStore((s) => s.activeSessionId);
+  const fetchActiveSession = useRoomStore((s) => s.fetchActiveSession);
+  const fetchSessionMap = useMapStore((s) => s.fetchSessionMap);
+
   const isDirector = currentRoom?.directorId === userId;
 
-  // Use roomId as a stand-in sessionId until game session management is wired.
-  const sessionId = params.roomId;
-
-  // Fetch map state for the room
+  // Fetch the active session for this room
   useEffect(() => {
-    if (params.roomId) {
-      fetchMapState(params.roomId);
+    if (params.roomId && !activeSessionId) {
+      fetchActiveSession(params.roomId);
     }
-  }, [params.roomId, fetchMapState]);
+  }, [params.roomId, activeSessionId, fetchActiveSession]);
 
-  // Fetch Sprint 5 data (NPCs, characters, notes)
+  // Fetch map state using the real session ID
   useEffect(() => {
-    if (!sessionId) return;
-    fetchNpcs(sessionId);
-    fetchCharacters(sessionId);
-    fetchNotes(sessionId);
-  }, [sessionId, fetchNpcs, fetchCharacters, fetchNotes]);
+    if (activeSessionId) {
+      fetchSessionMap(activeSessionId);
+    }
+  }, [activeSessionId, fetchSessionMap]);
+
+  // Fetch Sprint 5 data (NPCs, characters, notes) using real session ID
+  useEffect(() => {
+    if (!activeSessionId) return;
+    fetchNpcs(activeSessionId);
+    fetchCharacters(activeSessionId);
+    fetchNotes(activeSessionId);
+  }, [activeSessionId, fetchNpcs, fetchCharacters, fetchNotes]);
 
   // Subscribe to all socket events (Sprint 4 + Sprint 5)
   useEffect(() => {
@@ -198,12 +206,12 @@ export default function GameRoomPage() {
 
       {/* Tab content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {activeTab === 'chat' && <ChatPanel sessionId={sessionId} />}
-        {activeTab === 'dice' && <DiceRoller sessionId={sessionId} />}
-        {activeTab === 'characters' && <CharacterSheet sessionId={sessionId} />}
-        {activeTab === 'notes' && <SharedNotes sessionId={sessionId} />}
+        {activeTab === 'chat' && <ChatPanel sessionId={activeSessionId ?? ''} />}
+        {activeTab === 'dice' && <DiceRoller sessionId={activeSessionId ?? ''} />}
+        {activeTab === 'characters' && <CharacterSheet sessionId={activeSessionId ?? ''} />}
+        {activeTab === 'notes' && <SharedNotes sessionId={activeSessionId ?? ''} />}
         {activeTab === 'director' && isDirector && (
-          <DirectorPanel sessionId={sessionId} />
+          <DirectorPanel sessionId={activeSessionId ?? ''} />
         )}
       </div>
     </aside>
@@ -214,7 +222,7 @@ export default function GameRoomPage() {
   const mapContent = (
     <main className="relative flex h-full flex-col overflow-hidden">
       {/* Turn tracker bar above the map */}
-      <TurnTracker sessionId={sessionId} />
+      <TurnTracker sessionId={activeSessionId ?? ''} />
 
       {/* Map area */}
       <div className="relative flex-1 overflow-hidden">
@@ -259,7 +267,7 @@ export default function GameRoomPage() {
         </div>
 
         <div className="flex items-center gap-4">
-          <SearchBar sessionId={sessionId} />
+          <SearchBar sessionId={activeSessionId ?? ''} />
           <ConnectionIndicator />
           <button
             type="button"

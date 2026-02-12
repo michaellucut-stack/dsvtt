@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { useRoomStore } from '@/stores/room-store';
@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loading } from '@/components/ui/loading';
 import type { RoomStatus } from '@dsvtt/shared';
+
+const ACCEPTED_MAP_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
 
 const statusConfig: Record<
   string,
@@ -36,6 +38,9 @@ export default function RoomDetailPage() {
   const clearCurrentRoom = useRoomStore((s) => s.clearCurrentRoom);
   const clearError = useRoomStore((s) => s.clearError);
 
+  const [mapFile, setMapFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Fetch room on mount
   useEffect(() => {
     if (roomId) {
@@ -45,6 +50,17 @@ export default function RoomDetailPage() {
       clearCurrentRoom();
     };
   }, [roomId, fetchRoom, clearCurrentRoom]);
+
+  // Redirect all joined players to the game room when the session goes active
+  useEffect(() => {
+    if (
+      currentRoom &&
+      (currentRoom.status as string) === 'ACTIVE' &&
+      currentRoom.players?.some((p) => p.userId === user?.id)
+    ) {
+      router.push(`/${roomId}`);
+    }
+  }, [currentRoom, currentRoom?.status, user?.id, roomId, router]);
 
   if (loading && !currentRoom) {
     return (
@@ -99,9 +115,20 @@ export default function RoomDetailPage() {
     }
   }
 
+  function handleMapFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    if (file && !ACCEPTED_MAP_TYPES.includes(file.type)) {
+      setMapFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    setMapFile(file);
+  }
+
   async function handleStart() {
     try {
-      await startGame(roomId);
+      await startGame(roomId, mapFile ?? undefined);
+      router.push(`/${roomId}`);
     } catch {
       // Error is set in the store
     }
@@ -166,6 +193,64 @@ export default function RoomDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Map upload — director only, before game starts */}
+      {isDirector && (currentRoom.status as string) === 'WAITING' && (
+        <div className="mt-6 rounded-panel border border-charcoal-700/60 bg-charcoal-900/80 p-6 shadow-card backdrop-blur-sm">
+          <h3 className="mb-3 font-heading text-base font-semibold text-parchment-100">
+            Battle Map
+          </h3>
+          <p className="mb-3 text-xs text-parchment-400">
+            Upload a map image (JPG or PNG) for this session.
+          </p>
+          <label
+            className={[
+              'flex cursor-pointer items-center gap-3 rounded-card border border-dashed px-4 py-3 transition-colors',
+              mapFile
+                ? 'border-gold-600/60 bg-gold-950/20 text-gold-400'
+                : 'border-charcoal-600 bg-charcoal-800/40 text-parchment-400 hover:border-charcoal-500 hover:text-parchment-300',
+            ].join(' ')}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <span className="text-sm font-medium">
+              {mapFile ? mapFile.name : 'Choose map image...'}
+            </span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".jpg,.jpeg,.png"
+              onChange={handleMapFileChange}
+              className="sr-only"
+            />
+          </label>
+          {mapFile && (
+            <button
+              type="button"
+              onClick={() => {
+                setMapFile(null);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              }}
+              className="mt-2 text-xs text-crimson-400 hover:text-crimson-300"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Error */}
       {error && (
