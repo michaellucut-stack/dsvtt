@@ -51,7 +51,11 @@ export const useDiceStore = create<DiceState>()((set, get) => ({
   isRolling: false,
 
   roll(sessionId: string, formula: string, isPrivate: boolean) {
+    if (!sessionId) return; // Guard: sessionId not yet loaded
+
     const socket = getSocket();
+    if (!socket.connected) return; // Guard: socket not connected
+
     set({ isRolling: true });
 
     const event = isPrivate ? 'DICE_ROLL_PRIVATE' : 'DICE_ROLL';

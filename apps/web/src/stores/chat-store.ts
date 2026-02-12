@@ -1,9 +1,6 @@
 import { create } from 'zustand';
 import { getSocket, type TypedSocket } from '@/lib/socket';
-import type {
-  ChatMessageBroadcastPayload,
-  ChatWhisperReceivedPayload,
-} from '@dsvtt/events';
+import type { ChatMessageBroadcastPayload, ChatWhisperReceivedPayload } from '@dsvtt/events';
 import type { ChatChannel } from '@dsvtt/shared';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -69,12 +66,16 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   whisperTarget: null,
 
   sendMessage(sessionId: string, content: string, channel: ChatChannel) {
+    if (!sessionId) return; // Guard: sessionId not yet loaded
     const socket = getSocket();
+    if (!socket.connected) return; // Guard: socket not connected
     socket.emit('CHAT_MESSAGE', { sessionId, channel, content });
   },
 
   sendWhisper(sessionId: string, content: string, recipientId: string) {
+    if (!sessionId) return; // Guard: sessionId not yet loaded
     const socket = getSocket();
+    if (!socket.connected) return; // Guard: socket not connected
     socket.emit('CHAT_WHISPER', { sessionId, recipientId, content });
   },
 

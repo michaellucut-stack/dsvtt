@@ -58,18 +58,15 @@ mapRouter.post(
  *
  * List all maps belonging to a session.
  */
-mapRouter.get(
-  '/',
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const sessionId = req.params['sessionId'] as string;
-      const maps = await mapService.getMaps(sessionId);
-      res.status(200).json({ ok: true, data: maps });
-    } catch (err) {
-      next(err);
-    }
-  },
-);
+mapRouter.get('/', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const sessionId = req.params['sessionId'] as string;
+    const maps = await mapService.getMaps(sessionId);
+    res.status(200).json({ ok: true, data: maps });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Standalone map routes  (mounted at /api/maps)
@@ -92,6 +89,23 @@ mapDetailRouter.get(
     try {
       const detail = await mapService.getMapDetail(req.params['id'] as string);
       res.status(200).json({ ok: true, data: detail });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/**
+ * GET /api/maps/:id/state
+ *
+ * Get the complete map state (map + tokens + fog) for client hydration.
+ */
+mapDetailRouter.get(
+  '/:id/state',
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const state = await mapService.getMapState(req.params['id'] as string);
+      res.status(200).json({ ok: true, data: state });
     } catch (err) {
       next(err);
     }
@@ -246,11 +260,7 @@ mapDetailRouter.patch(
       const mapId = req.params['id'] as string;
       const regionId = req.params['regionId'] as string;
       await mapService.requireMapDirector(mapId, req.user!.sub);
-      const region = await mapService.updateFogRegion(
-        mapId,
-        regionId,
-        req.body.revealed,
-      );
+      const region = await mapService.updateFogRegion(mapId, regionId, req.body.revealed);
       res.status(200).json({ ok: true, data: region });
     } catch (err) {
       next(err);

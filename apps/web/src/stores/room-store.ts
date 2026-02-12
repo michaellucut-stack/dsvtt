@@ -64,6 +64,9 @@ interface RoomState {
   clearCurrentRoom: () => void;
   clearError: () => void;
 
+  /** End the active session (director only). */
+  endSession: () => Promise<void>;
+
   /** Wire up Socket.IO listeners for real-time updates. Call once after connecting. */
   subscribeToSocket: () => () => void;
 }
@@ -188,6 +191,25 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
       return sessionId;
     } catch {
       return null;
+    }
+  },
+
+  async endSession() {
+    const sessionId = get().activeSessionId;
+    if (!sessionId) return;
+    set({ error: null });
+    try {
+      await apiClient.patch(`/api/sessions/${sessionId}/status`, { status: 'ENDED' });
+      set({ activeSessionId: null });
+      // Update room status back to WAITING
+      const currentRoom = get().currentRoom;
+      if (currentRoom) {
+        set({ currentRoom: { ...currentRoom, status: 'WAITING' as RoomStatus } });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to end session';
+      set({ error: message });
+      throw err;
     }
   },
 

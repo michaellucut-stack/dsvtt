@@ -130,10 +130,9 @@ function RollHistoryItem({ entry, isOwn }: { entry: DiceRollEntry; isOwn: boolea
       {/* Header row */}
       <div className="flex items-center justify-between gap-2">
         <span
-          className={[
-            'text-xs font-semibold',
-            isOwn ? 'text-gold-400' : 'text-parchment-300',
-          ].join(' ')}
+          className={['text-xs font-semibold', isOwn ? 'text-gold-400' : 'text-parchment-300'].join(
+            ' ',
+          )}
         >
           {entry.playerName}
         </span>
@@ -152,25 +151,19 @@ function RollHistoryItem({ entry, isOwn }: { entry: DiceRollEntry; isOwn: boolea
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
           )}
-          <span className="text-[10px] text-charcoal-400">
-            {formatTime(entry.timestamp)}
-          </span>
+          <span className="text-[10px] text-charcoal-400">{formatTime(entry.timestamp)}</span>
         </div>
       </div>
 
       {/* Formula + result */}
       <div className="mt-1 flex items-baseline gap-2">
         <span className="font-mono text-xs text-parchment-400">{entry.formula}</span>
-        <span className="text-[10px] text-charcoal-400">
-          [{formatDieResults(entry)}]
-        </span>
+        <span className="text-[10px] text-charcoal-400">[{formatDieResults(entry)}]</span>
       </div>
 
       {/* Total */}
       <div className="mt-1">
-        <span className="font-heading text-lg font-bold text-gold-400">
-          {entry.total}
-        </span>
+        <span className="font-heading text-lg font-bold text-gold-400">{entry.total}</span>
       </div>
     </div>
   );
@@ -192,9 +185,7 @@ function RollingIndicator() {
       >
         <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
       </svg>
-      <span className="animate-pulse text-sm font-semibold text-gold-400">
-        Rolling...
-      </span>
+      <span className="animate-pulse text-sm font-semibold text-gold-400">Rolling...</span>
     </div>
   );
 }
@@ -214,10 +205,13 @@ export function DiceRoller({ sessionId }: DiceRollerProps) {
   const roll = useDiceStore((s) => s.roll);
   const userId = useAuthStore((s) => s.user?.id);
 
+  const sessionReady = !!sessionId;
+
   const handleRoll = useCallback(
     (diceFormula: string) => {
       const trimmed = diceFormula.trim();
       if (!trimmed || trimmed.length > DICE_FORMULA_MAX_LENGTH) return;
+      if (!sessionId) return; // Guard: session not loaded yet
       roll(sessionId, trimmed, isPrivate);
       setFormula('');
     },
@@ -255,17 +249,14 @@ export function DiceRoller({ sessionId }: DiceRollerProps) {
               key={die.label}
               die={die}
               onClick={() => handleRoll(die.formula)}
-              disabled={isRolling}
+              disabled={isRolling || !sessionReady}
             />
           ))}
         </div>
       </div>
 
       {/* ── Formula input bar ───────────────────────────────────────────── */}
-      <form
-        onSubmit={handleSubmit}
-        className="shrink-0 border-b border-charcoal-800 p-3"
-      >
+      <form onSubmit={handleSubmit} className="shrink-0 border-b border-charcoal-800 p-3">
         <div className="flex gap-2">
           <input
             type="text"
@@ -274,7 +265,7 @@ export function DiceRoller({ sessionId }: DiceRollerProps) {
             onKeyDown={handleKeyDown}
             placeholder="2d6+3"
             maxLength={DICE_FORMULA_MAX_LENGTH}
-            disabled={isRolling}
+            disabled={isRolling || !sessionReady}
             className={[
               'flex-1 rounded-card border bg-charcoal-800/80 px-3 py-2',
               'font-mono text-sm text-parchment-100 placeholder:text-charcoal-500',
@@ -284,7 +275,7 @@ export function DiceRoller({ sessionId }: DiceRollerProps) {
           />
           <button
             type="submit"
-            disabled={isRolling || !formula.trim()}
+            disabled={isRolling || !formula.trim() || !sessionReady}
             className={[
               'shrink-0 rounded-card border border-gold-600 bg-gold-600 px-4 py-2',
               'font-heading text-xs font-bold uppercase tracking-wider text-charcoal-950',
@@ -347,18 +338,12 @@ export function DiceRoller({ sessionId }: DiceRollerProps) {
               <circle cx="16" cy="16" r="1.5" fill="currentColor" />
             </svg>
             <p className="text-xs text-charcoal-500">No rolls yet</p>
-            <p className="text-[10px] text-charcoal-600">
-              Use the buttons above or type a formula
-            </p>
+            <p className="text-[10px] text-charcoal-600">Use the buttons above or type a formula</p>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
             {rollHistory.map((entry) => (
-              <RollHistoryItem
-                key={entry.id}
-                entry={entry}
-                isOwn={entry.playerId === userId}
-              />
+              <RollHistoryItem key={entry.id} entry={entry} isOwn={entry.playerId === userId} />
             ))}
           </div>
         )}

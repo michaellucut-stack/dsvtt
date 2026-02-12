@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { apiClient } from '@/lib/api';
 import { getSocket, type TypedSocket } from '@/lib/socket';
-import type { Token, FogRegion, TokenLayer, GameMap } from '@dsvtt/shared';
+import type { Token, FogRegion, TokenLayer } from '@dsvtt/shared';
 import type {
   TokenMovedPayload,
   TokenAddedPayload,
@@ -103,8 +103,16 @@ interface MapState {
 
 // ─── API response shapes ────────────────────────────────────────────────────
 
+/** Server returns a flat object with map fields at top level alongside tokens/fogRegions. */
 interface MapStateResponse {
-  map: GameMap;
+  id: string;
+  sessionId: string;
+  name: string;
+  backgroundUrl: string | null;
+  gridWidth: number;
+  gridHeight: number;
+  gridSize: number;
+  createdAt: string;
   tokens: Token[];
   fogRegions: FogRegion[];
 }
@@ -131,15 +139,15 @@ export const useMapStore = create<MapState>()((set, get) => ({
       const data = res.data;
       set({
         currentMap: {
-          id: data.map.id,
-          name: data.map.name,
-          gridWidth: data.map.gridWidth,
-          gridHeight: data.map.gridHeight,
-          gridSize: data.map.gridSize,
-          backgroundUrl: data.map.backgroundUrl,
+          id: data.id,
+          name: data.name,
+          gridWidth: data.gridWidth,
+          gridHeight: data.gridHeight,
+          gridSize: data.gridSize,
+          backgroundUrl: data.backgroundUrl,
         },
-        tokens: data.tokens,
-        fogRegions: data.fogRegions,
+        tokens: data.tokens ?? [],
+        fogRegions: data.fogRegions ?? [],
         loading: false,
       });
     } catch (err) {

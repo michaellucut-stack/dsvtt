@@ -182,10 +182,9 @@ function ChatBubble({
     <div className="group px-3 py-1.5">
       <div className="flex items-baseline gap-1.5">
         <span
-          className={[
-            'text-xs font-semibold',
-            isOwn ? 'text-gold-400' : 'text-parchment-300',
-          ].join(' ')}
+          className={['text-xs font-semibold', isOwn ? 'text-gold-400' : 'text-parchment-300'].join(
+            ' ',
+          )}
         >
           {msg.senderName}
         </span>
@@ -200,13 +199,7 @@ function ChatBubble({
 
 // ─── Whisper Indicator Bar ──────────────────────────────────────────────────
 
-function WhisperIndicator({
-  target,
-  onCancel,
-}: {
-  target: WhisperTarget;
-  onCancel: () => void;
-}) {
+function WhisperIndicator({ target, onCancel }: { target: WhisperTarget; onCancel: () => void }) {
   return (
     <div className="flex items-center gap-2 border-b border-purple-800/30 bg-purple-950/20 px-3 py-1.5">
       <svg
@@ -268,11 +261,14 @@ export function ChatPanel({ sessionId }: ChatPanelProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [filteredMessages.length]);
 
+  const sessionReady = !!sessionId;
+
   const handleSend = useCallback(
     (e: FormEvent) => {
       e.preventDefault();
       const trimmed = input.trim();
       if (!trimmed || trimmed.length > MAX_CHAT_MESSAGE_LENGTH) return;
+      if (!sessionId) return; // Guard: session not loaded yet
 
       if (whisperTarget) {
         sendWhisper(sessionId, trimmed, whisperTarget.id);
@@ -306,19 +302,11 @@ export function ChatPanel({ sessionId }: ChatPanelProps) {
           onClick={setChannel}
           label="In Character"
         />
-        <ChannelTab
-          channel="ooc"
-          activeChannel={activeChannel}
-          onClick={setChannel}
-          label="OOC"
-        />
+        <ChannelTab channel="ooc" activeChannel={activeChannel} onClick={setChannel} label="OOC" />
       </div>
 
       {/* ── Message list ────────────────────────────────────────────────── */}
-      <div
-        ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto"
-      >
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
         {filteredMessages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center p-4 text-center">
             <svg
@@ -356,17 +344,11 @@ export function ChatPanel({ sessionId }: ChatPanelProps) {
 
       {/* ── Whisper indicator ───────────────────────────────────────────── */}
       {whisperTarget && (
-        <WhisperIndicator
-          target={whisperTarget}
-          onCancel={() => setWhisperTarget(null)}
-        />
+        <WhisperIndicator target={whisperTarget} onCancel={() => setWhisperTarget(null)} />
       )}
 
       {/* ── Input bar ───────────────────────────────────────────────────── */}
-      <form
-        onSubmit={handleSend}
-        className="shrink-0 border-t border-charcoal-800 p-2"
-      >
+      <form onSubmit={handleSend} className="shrink-0 border-t border-charcoal-800 p-2">
         <div className="flex gap-2">
           <input
             type="text"
@@ -374,11 +356,13 @@ export function ChatPanel({ sessionId }: ChatPanelProps) {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={
-              whisperTarget
-                ? `Whisper to ${whisperTarget.name}...`
-                : activeChannel === 'ic'
-                  ? 'Speak in character...'
-                  : 'Type a message...'
+              !sessionReady
+                ? 'Connecting to session...'
+                : whisperTarget
+                  ? `Whisper to ${whisperTarget.name}...`
+                  : activeChannel === 'ic'
+                    ? 'Speak in character...'
+                    : 'Type a message...'
             }
             maxLength={MAX_CHAT_MESSAGE_LENGTH}
             className={[
@@ -394,7 +378,7 @@ export function ChatPanel({ sessionId }: ChatPanelProps) {
           />
           <button
             type="submit"
-            disabled={!input.trim()}
+            disabled={!input.trim() || !sessionReady}
             className={[
               'shrink-0 rounded-card px-3 py-2',
               'transition-all duration-150',

@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useEffect, useState, useCallback } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { useRoomStore } from '@/stores/room-store';
 import { useSocketStore } from '@/stores/socket-store';
@@ -144,9 +144,35 @@ export default function GameRoomPage() {
 
   const activeSessionId = useRoomStore((s) => s.activeSessionId);
   const fetchActiveSession = useRoomStore((s) => s.fetchActiveSession);
+  const endSession = useRoomStore((s) => s.endSession);
+  const leaveRoom = useRoomStore((s) => s.leaveRoom);
   const fetchSessionMap = useMapStore((s) => s.fetchSessionMap);
+  const router = useRouter();
 
   const isDirector = currentRoom?.directorId === userId;
+  const [leaving, setLeaving] = useState(false);
+
+  const handleEndSession = useCallback(async () => {
+    if (leaving) return;
+    setLeaving(true);
+    try {
+      await endSession();
+      router.push('/lobby');
+    } catch {
+      setLeaving(false);
+    }
+  }, [leaving, endSession, router]);
+
+  const handleLeaveRoom = useCallback(async () => {
+    if (leaving || !params.roomId) return;
+    setLeaving(true);
+    try {
+      await leaveRoom(params.roomId);
+      router.push('/lobby');
+    } catch {
+      setLeaving(false);
+    }
+  }, [leaving, leaveRoom, params.roomId, router]);
 
   // Fetch the active session for this room
   useEffect(() => {
@@ -269,6 +295,25 @@ export default function GameRoomPage() {
         <div className="flex items-center gap-4">
           <SearchBar sessionId={activeSessionId ?? ''} />
           <ConnectionIndicator />
+          {isDirector ? (
+            <button
+              type="button"
+              onClick={handleEndSession}
+              disabled={leaving}
+              className="rounded-card border border-crimson-700 bg-crimson-900/40 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-crimson-400 transition-colors hover:bg-crimson-800/60 hover:text-crimson-300 disabled:opacity-50"
+            >
+              {leaving ? 'Ending...' : 'End Session'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleLeaveRoom}
+              disabled={leaving}
+              className="rounded-card border border-charcoal-600 bg-charcoal-800 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-parchment-400 transition-colors hover:bg-charcoal-700 hover:text-parchment-200 disabled:opacity-50"
+            >
+              {leaving ? 'Leaving...' : 'Leave'}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setSidebarCollapsed((prev) => !prev)}
