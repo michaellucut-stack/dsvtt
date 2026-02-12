@@ -1,0 +1,32 @@
+{
+  "name": "@dsvtt/rule-parser",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Markdown rule file parser for TTRPG game systems",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "rm -rf dist",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "yaml": "^2.8.2"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  },
+  "files": [
+    "dist",
+    "src"
+  ]
+}

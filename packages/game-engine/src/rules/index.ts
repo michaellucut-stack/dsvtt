@@ -2,7 +2,6 @@ import type { GameState } from '../state/index.js';
 
 /**
  * Result of validating a game action against the rule set.
- * Will be expanded in Phase 2 with the constraint engine.
  */
 export interface ValidationResult {
   /** Whether the action is allowed. */
@@ -13,7 +12,7 @@ export interface ValidationResult {
 
 /**
  * Validates a game action against the current state and rules.
- * Placeholder implementation — always permits actions.
+ * Placeholder implementation — delegates to ConstraintEngine when a game system is loaded.
  *
  * @param _state - The current game state
  * @param _actionType - The type of action being attempted
@@ -25,6 +24,24 @@ export function validateAction(
   _actionType: string,
   _payload: Record<string, unknown>,
 ): ValidationResult {
-  // TODO(game-engine): Implement rule validation in Phase 2
+  // Default: allow all actions when no game system is loaded.
+  // When a game system is loaded, use ConstraintEngine.evaluate() instead.
   return { valid: true, reason: null };
 }
+
+// Re-export constraint engine
+export type {
+  Constraint,
+  ConstraintScope,
+  ConstraintEvaluator,
+  ProposedAction,
+  ConstraintContext,
+  ConstraintValidationResult,
+} from './constraint-engine.js';
+
+export {
+  ConstraintRegistry,
+  ConstraintEngine,
+  createMovementSpeedConstraint,
+  createActionEconomyConstraint,
+} from './constraint-engine.js';

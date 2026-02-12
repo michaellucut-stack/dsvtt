@@ -1,9 +1,5 @@
 import { z } from 'zod';
-import {
-  MAX_PLAYERS,
-  MIN_PLAYERS,
-  MAX_ROOM_NAME_LENGTH,
-} from '@dsvtt/shared';
+import { MAX_PLAYERS, MIN_PLAYERS, MAX_ROOM_NAME_LENGTH } from '@dsvtt/shared';
 
 // ---------------------------------------------------------------------------
 // Room CRUD schemas
@@ -21,6 +17,8 @@ export const createRoomSchema = z.object({
     .int('maxPlayers must be an integer')
     .min(MIN_PLAYERS, `Must allow at least ${MIN_PLAYERS} player`)
     .max(MAX_PLAYERS, `Cannot exceed ${MAX_PLAYERS} players`),
+  /** Optional game system ID (Phase 2). When set, the room uses game-specific rules. */
+  gameSystemId: z.string().uuid('Invalid game system ID').optional().nullable(),
 });
 
 /** Inferred type for a validated create-room payload. */

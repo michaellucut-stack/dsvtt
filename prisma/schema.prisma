@@ -64,29 +64,33 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  directedRooms Room[]       @relation("RoomDirector")
-  roomPlayers   RoomPlayer[]
-  characters    Character[]
+  directedRooms  Room[]          @relation("RoomDirector")
+  roomPlayers    RoomPlayer[]
+  characters     Character[]
+  characterData  CharacterData[] @relation("CharacterDataOwner")
 
   @@index([email])
   @@map("users")
 }
 
 model Room {
-  id         String     @id @default(uuid()) @db.Uuid
-  name       String
-  status     RoomStatus @default(WAITING)
-  directorId String     @db.Uuid
-  maxPlayers Int        @default(8)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id           String     @id @default(uuid()) @db.Uuid
+  name         String
+  status       RoomStatus @default(WAITING)
+  directorId   String     @db.Uuid
+  maxPlayers   Int        @default(8)
+  gameSystemId String?    @db.Uuid
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   director     User          @relation("RoomDirector", fields: [directorId], references: [id], onDelete: Cascade)
+  gameSystem   GameSystem?   @relation(fields: [gameSystemId], references: [id], onDelete: SetNull)
   players      RoomPlayer[]
   gameSessions GameSession[]
 
   @@index([directorId])
   @@index([status])
+  @@index([gameSystemId])
   @@index([createdAt])
   @@map("rooms")
 }
@@ -115,15 +119,16 @@ model GameSession {
   endedAt    DateTime?
   eventCount Int           @default(0)
 
-  room         Room            @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  eventLogs    GameEventLog[]
-  maps         GameMap[]
-  chatMessages ChatMessage[]
-  diceRolls    DiceRollLog[]
-  npcs         Npc[]
-  characters   Character[]
-  sharedNotes  SharedNote[]
-  snapshots    StateSnapshot[]
+  room          Room            @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  eventLogs     GameEventLog[]
+  maps          GameMap[]
+  chatMessages  ChatMessage[]
+  diceRolls     DiceRollLog[]
+  npcs          Npc[]
+  characters    Character[]
+  sharedNotes   SharedNote[]
+  snapshots     StateSnapshot[]
+  characterData CharacterData[]
 
   @@index([roomId])
   @@index([status])
@@ -303,4 +308,157 @@ model StateSnapshot {
   @@index([sessionId])
   @@index([createdAt])
   @@map("state_snapshots")
+}
+
+// ─── Phase 2: Game System Models ────────────────────────────────────────────
+
+model GameSystem {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  version     String
+  source      String
+  description String?
+  /** Path to the game_rules/ folder on disk. */
+  rulesPath   String
+  /** Parsed game system data cached as JSON. */
+  parsedData  Json     @default("{}")
+  /** Whether the system is ready for use (parsing completed). */
+  isReady     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rooms              Room[]
+  ruleConstraints    RuleConstraint[]
+  systemConfigs      GameSystemConfig[]
+  characterTemplates CharacterTemplate[]
+  abilities          Ability[]
+
+  @@index([name])
+  @@index([isReady])
+  @@map("game_systems")
+}
+
+model RuleConstraint {
+  id           String  @id @default(uuid()) @db.Uuid
+  gameSystemId String  @db.Uuid
+  /** Constraint identifier within the system (e.g., "movement:speed"). */
+  constraintId String
+  name         String
+  /** Constraint scope: movement, action_economy, ability_use, combat, condition, resource, general. */
+  scope        String
+  /** Whether this constraint is enabled by default. */
+  enabled      Boolean @default(true)
+  /** Evaluation priority (lower = higher priority). */
+  priority     Int     @default(100)
+  /** Constraint configuration as JSON (thresholds, limits, etc.). */
+  config       Json    @default("{}")
+  description  String?
+
+  gameSystem GameSystem @relation(fields: [gameSystemId], references: [id], onDelete: Cascade)
+
+  @@unique([gameSystemId, constraintId])
+  @@index([gameSystemId])
+  @@index([scope])
+  @@map("rule_constraints")
+}
+
+model CharacterTemplate {
+  id           String  @id @default(uuid()) @db.Uuid
+  gameSystemId String  @db.Uuid
+  /** Template version. */
+  version      String
+  /** Section ordering as JSON array of {id, label} objects. */
+  sectionOrder Json
+  /** All field definitions as JSON array. */
+  fields       Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  gameSystem     GameSystem      @relation(fields: [gameSystemId], references: [id], onDelete: Cascade)
+  characterData  CharacterData[]
+
+  @@unique([gameSystemId, version])
+  @@index([gameSystemId])
+  @@map("character_templates")
+}
+
+model CharacterData {
+  id             String   @id @default(uuid()) @db.Uuid
+  templateId     String   @db.Uuid
+  sessionId      String   @db.Uuid
+  userId         String   @db.Uuid
+  /** Character field values as JSON object. */
+  data           Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  template CharacterTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  session  GameSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user     User               @relation("CharacterDataOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@index([sessionId])
+  @@index([userId])
+  @@map("character_data")
+}
+
+model Ability {
+  id           String  @id @default(uuid()) @db.Uuid
+  gameSystemId String  @db.Uuid
+  name         String
+  /** Tab classification: actions, maneuvers, triggered. */
+  tab          String
+  /** Original category from emoji: melee, ranged, area, etc. */
+  category     String
+  actionType   String
+  keywords     Json    @default("[]")
+  distance     String?
+  targets      String?
+  powerRollCharacteristic String?
+  powerRollTiers Json?
+  effect       String?
+  trigger      String?
+  special      String?
+  cost         String?
+  /** Source class (e.g., "Censor"). */
+  sourceClass  String?
+  /** Source ancestry (e.g., "Human"). */
+  sourceAncestry String?
+  /** Source kit. */
+  sourceKit    String?
+  /** Minimum level required. */
+  levelRequired Int    @default(1)
+  /** Whether this is a signature ability. */
+  isSignature  Boolean @default(false)
+  /** Full raw markdown text. */
+  rawText      String?
+
+  gameSystem GameSystem @relation(fields: [gameSystemId], references: [id], onDelete: Cascade)
+
+  @@index([gameSystemId])
+  @@index([tab])
+  @@index([sourceClass])
+  @@index([levelRequired])
+  @@map("abilities")
+}
+
+model GameSystemConfig {
+  id           String  @id @default(uuid()) @db.Uuid
+  gameSystemId String  @db.Uuid
+  /** Configuration key (e.g., "maxActionsPerTurn", "movementCostPerSquare"). */
+  key          String
+  /** Configuration value as JSON. */
+  value        Json
+  /** Whether this config can be modified by the Director. */
+  editable     Boolean @default(true)
+  /** Default value (for reset). */
+  defaultValue Json
+  label        String?
+  description  String?
+
+  gameSystem GameSystem @relation(fields: [gameSystemId], references: [id], onDelete: Cascade)
+
+  @@unique([gameSystemId, key])
+  @@index([gameSystemId])
+  @@map("game_system_configs")
 }
