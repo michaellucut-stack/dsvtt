@@ -638,13 +638,13 @@ A feature/story is considered DONE when:
 
 | Sprint | Phase | Name | Planned SP | Completed SP | Velocity | Notes |
 |--------|-------|------|-----------|--------------|----------|-------|
-| 1      | 1     | Lay the Foundation | ~91 | - | - | - |
-| 2      | 1     | Lobby & Rooms | ~101 | - | - | - |
-| 3      | 1     | The Map Awakens | ~102 | - | - | - |
-| 4      | 1     | Roll for Initiative | ~96 | - | - | - |
-| 5      | 1     | Director & Player Tools | ~91 | - | - | - |
-| 6      | 1     | Time Capsule | ~91 | - | - | - |
-| 7      | 1     | Ship It (v1.0) | ~101 | - | - | **v1.0 Release** |
+| 1      | 1     | Lay the Foundation | ~91 | ~91 | 91 | Completed |
+| 2      | 1     | Lobby & Rooms | ~101 | ~101 | 101 | Completed |
+| 3      | 1     | The Map Awakens | ~102 | ~102 | 102 | Completed |
+| 4      | 1     | Roll for Initiative | ~96 | ~96 | 96 | Completed |
+| 5      | 1     | Director & Player Tools | ~91 | ~91 | 91 | Completed |
+| 6      | 1     | Time Capsule | ~91 | ~91 | 91 | Completed |
+| 7      | 1     | Ship It (v1.0) | ~101 | ~101 | 101 | **v1.0 Release** |
 | 8      | 2     | The Rules Engine | ~81 | - | - | - |
 | 9      | 2     | The Character Sheet | ~83 | - | - | - |
 | 10     | 2     | Abilities Unleashed | ~88 | - | - | - |

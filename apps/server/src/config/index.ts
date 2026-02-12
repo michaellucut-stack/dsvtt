@@ -22,6 +22,12 @@ export interface ServerConfig {
   readonly bcryptSaltRounds: number;
   /** Current runtime environment. */
   readonly nodeEnv: 'development' | 'production' | 'test';
+  /** Maximum number of database connections in the pool. */
+  readonly dbConnectionPoolSize: number;
+  /** Request timeout in milliseconds. */
+  readonly requestTimeout: number;
+  /** Maximum request body size (e.g. "1mb", "5mb"). */
+  readonly maxBodySize: string;
 }
 
 /**
@@ -31,6 +37,30 @@ export interface ServerConfig {
  */
 function env(key: string, fallback: string): string {
   return process.env[key] ?? fallback;
+}
+
+/**
+ * Validate production configuration.
+ * Fails fast if secrets are insecure in production.
+ */
+function validateProductionConfig(cfg: ServerConfig): void {
+  if (cfg.nodeEnv !== 'production') return;
+
+  const insecurePatterns = ['dev', 'change-me'];
+  for (const pattern of insecurePatterns) {
+    if (cfg.jwtSecret.includes(pattern)) {
+      throw new Error(
+        `FATAL: jwtSecret contains '${pattern}' — refusing to start in production. ` +
+        'Set a secure JWT_SECRET environment variable.',
+      );
+    }
+    if (cfg.jwtRefreshSecret.includes(pattern)) {
+      throw new Error(
+        `FATAL: jwtRefreshSecret contains '${pattern}' — refusing to start in production. ` +
+        'Set a secure JWT_REFRESH_SECRET environment variable.',
+      );
+    }
+  }
 }
 
 /** Parsed and validated server configuration. */
@@ -43,4 +73,10 @@ export const config: ServerConfig = {
   jwtRefreshExpiresIn: env('JWT_REFRESH_EXPIRES_IN', '7d'),
   bcryptSaltRounds: parseInt(env('BCRYPT_SALT_ROUNDS', '12'), 10),
   nodeEnv: env('NODE_ENV', 'development') as ServerConfig['nodeEnv'],
+  dbConnectionPoolSize: parseInt(env('DB_POOL_SIZE', '10'), 10),
+  requestTimeout: parseInt(env('REQUEST_TIMEOUT', '30000'), 10),
+  maxBodySize: env('MAX_BODY_SIZE', '1mb'),
 };
+
+// Validate configuration — throws on insecure production settings
+validateProductionConfig(config);

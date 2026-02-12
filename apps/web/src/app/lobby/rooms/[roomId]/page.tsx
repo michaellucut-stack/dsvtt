@@ -11,13 +11,13 @@ import { Loading } from '@/components/ui/loading';
 import type { RoomStatus } from '@dsvtt/shared';
 
 const statusConfig: Record<
-  RoomStatus,
+  string,
   { label: string; variant: 'success' | 'warning' | 'info' | 'danger' | 'neutral' }
 > = {
-  waiting: { label: 'Waiting for Players', variant: 'warning' },
-  active: { label: 'Game in Progress', variant: 'success' },
-  paused: { label: 'Paused', variant: 'info' },
-  ended: { label: 'Ended', variant: 'neutral' },
+  WAITING: { label: 'Waiting for Players', variant: 'warning' },
+  ACTIVE: { label: 'Game in Progress', variant: 'success' },
+  PAUSED: { label: 'Paused', variant: 'info' },
+  ENDED: { label: 'Ended', variant: 'neutral' },
 };
 
 export default function RoomDetailPage() {
@@ -80,13 +80,13 @@ export default function RoomDetailPage() {
   const isJoined = players.some((p) => p.userId === user?.id);
   const canJoin =
     !isJoined &&
-    currentRoom.status === 'waiting' &&
+    (currentRoom.status as string) === 'WAITING' &&
     players.length < currentRoom.maxPlayers;
   const canStart =
-    isDirector && currentRoom.status === 'waiting' && players.length >= 1;
+    isDirector && (currentRoom.status as string) === 'WAITING' && players.length >= 1;
 
   const { label: statusLabel, variant: statusVariant } =
-    statusConfig[currentRoom.status];
+    statusConfig[currentRoom.status] ?? { label: currentRoom.status, variant: 'neutral' as const };
 
   async function handleJoin() {
     try {

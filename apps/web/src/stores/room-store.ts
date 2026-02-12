@@ -64,8 +64,8 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
   async fetchRooms() {
     set({ loading: true, error: null });
     try {
-      const rooms = await apiClient.get<Room[]>('/api/rooms');
-      set({ rooms, loading: false });
+      const res = await apiClient.get<{ ok: boolean; data: { rooms: Room[] } }>('/api/rooms');
+      set({ rooms: res.data.rooms, loading: false });
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : 'Failed to fetch rooms',
@@ -77,8 +77,8 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
   async fetchRoom(roomId: string) {
     set({ loading: true, error: null });
     try {
-      const room = await apiClient.get<Room>(`/api/rooms/${roomId}`);
-      set({ currentRoom: room, loading: false });
+      const res = await apiClient.get<{ ok: boolean; data: Room }>(`/api/rooms/${roomId}`);
+      set({ currentRoom: res.data, loading: false });
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : 'Failed to fetch room',
@@ -90,7 +90,8 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
   async createRoom(input: CreateRoomInput) {
     set({ error: null });
     try {
-      const room = await apiClient.post<Room>('/api/rooms', input);
+      const res = await apiClient.post<{ ok: boolean; data: Room }>('/api/rooms', input);
+      const room = res.data;
       set((state) => ({ rooms: [room, ...state.rooms] }));
       return room;
     } catch (err) {
@@ -104,8 +105,8 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
   async joinRoom(roomId: string) {
     set({ error: null });
     try {
-      const room = await apiClient.post<Room>(`/api/rooms/${roomId}/join`);
-      set({ currentRoom: room });
+      const res = await apiClient.post<{ ok: boolean; data: Room }>(`/api/rooms/${roomId}/join`);
+      set({ currentRoom: res.data });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Failed to join room';
@@ -159,7 +160,7 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
       const newRoom: Room = {
         id: payload.roomId,
         name: payload.name,
-        status: 'waiting',
+        status: 'WAITING' as RoomStatus,
         directorId: payload.directorId,
         maxPlayers: payload.maxPlayers,
         playerCount: 1,

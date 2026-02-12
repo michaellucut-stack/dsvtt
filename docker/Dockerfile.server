@@ -5,7 +5,7 @@
 # ---------------------------------------------------------------------------
 # Stage 1: Build
 # ---------------------------------------------------------------------------
-FROM node:20-alpine AS builder
+FROM node:20-alpine3.21 AS builder
 
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
@@ -17,6 +17,8 @@ COPY apps/server/package.json apps/server/
 COPY packages/shared/package.json packages/shared/
 COPY packages/events/package.json packages/events/
 COPY packages/auth/package.json packages/auth/
+COPY packages/dice-engine/package.json packages/dice-engine/
+COPY packages/game-engine/package.json packages/game-engine/
 COPY prisma/ prisma/
 
 # Install dependencies
@@ -29,18 +31,30 @@ RUN pnpm --filter @dsvtt/server exec prisma generate
 COPY packages/shared/ packages/shared/
 COPY packages/events/ packages/events/
 COPY packages/auth/ packages/auth/
+COPY packages/dice-engine/ packages/dice-engine/
+COPY packages/game-engine/ packages/game-engine/
 COPY apps/server/ apps/server/
 
 # Build shared packages first, then the server
 RUN pnpm --filter @dsvtt/shared build && \
     pnpm --filter @dsvtt/events build && \
     pnpm --filter @dsvtt/auth build && \
+    pnpm --filter @dsvtt/dice-engine build && \
+    pnpm --filter @dsvtt/game-engine build && \
     pnpm --filter @dsvtt/server build
 
 # ---------------------------------------------------------------------------
 # Stage 2: Production
 # ---------------------------------------------------------------------------
-FROM node:20-alpine AS runner
+FROM node:20-alpine3.21 AS runner
+
+LABEL org.opencontainers.image.source="https://github.com/vttforge/dsvtt"
+LABEL org.opencontainers.image.description="DSVTT Server — Express + Socket.IO API"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.vendor="VTT Forge"
+
+# Upgrade Alpine packages for latest security patches
+RUN apk --no-cache upgrade
 
 RUN addgroup --system --gid 1001 appgroup && \
     adduser --system --uid 1001 appuser
@@ -56,8 +70,19 @@ COPY --from=builder /app/apps/server/node_modules ./apps/server/node_modules
 COPY --from=builder /app/packages/ ./packages/
 COPY --from=builder /app/prisma ./prisma
 
+# Remove unnecessary files from the production image
+RUN rm -rf .npmrc .git README.md LICENSE \
+    && find ./packages -name "*.ts" ! -name "*.d.ts" -delete 2>/dev/null || true \
+    && find . -name ".npmrc" -delete 2>/dev/null || true \
+    && find . -name "README.md" -delete 2>/dev/null || true \
+    && find . -name "CHANGELOG.md" -delete 2>/dev/null || true \
+    && find . -name ".git" -type d -exec rm -rf {} + 2>/dev/null || true
+
 USER appuser
 
 EXPOSE 4000
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD wget -q --spider http://localhost:4000/health || exit 1
 
 CMD ["node", "dist/index.js"]

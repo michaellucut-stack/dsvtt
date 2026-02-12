@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { ToastContainer } from '@/components/ui/toast';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -28,6 +29,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-charcoal-950 font-body text-parchment-100">
         {children}
+        <ToastContainer />
       </body>
     </html>
   );

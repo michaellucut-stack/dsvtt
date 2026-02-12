@@ -7,6 +7,8 @@ import cookieParser from 'cookie-parser';
 import { Server as SocketIOServer } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from '@dsvtt/events';
 import { config } from './config/index.js';
+import { disconnectPrisma } from './config/prisma.js';
+import { requestTimeout } from './middleware/timeout.js';
 import { authRouter } from './api/auth/auth.router.js';
 import { roomRouter } from './api/rooms/room.router.js';
 import { sessionRouter } from './api/sessions/session.router.js';
@@ -22,7 +24,14 @@ import { searchRouter } from './api/search/search.router.js';
 import { registerAllReducers } from '@dsvtt/game-engine';
 import { notFound, errorHandler } from './middleware/error-handler.js';
 import { apiRateLimit, authRateLimit } from './middleware/rate-limit.js';
-import { requestId, wsOriginValidation } from './middleware/security.js';
+import {
+  requestId,
+  wsOriginValidation,
+  securityAuditLog,
+  preventParamPollution,
+  sanitizeBody,
+} from './middleware/security.js';
+import { csrfTokenHandler, csrfProtection } from './middleware/csrf.js';
 import { registerConnectionHandler } from './socket/connection.js';
 import { logger } from './utils/logger.js';
 import { ensureUploadDir } from './utils/upload.js';
@@ -37,6 +46,9 @@ const app = express();
 
 // Request ID — must be first so all downstream middleware/logs can use it
 app.use(requestId);
+
+// Security audit logging — captures auth failures, rate limits, CORS rejections
+app.use(securityAuditLog);
 
 // Enhanced security headers
 app.use(
@@ -81,13 +93,25 @@ app.use(
   }),
 );
 
+// Request timeout — abort requests exceeding the configured limit
+app.use(requestTimeout(config.requestTimeout));
+
 // Body parsing
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: config.maxBodySize }));
+app.use(express.urlencoded({ extended: false, limit: config.maxBodySize }));
 app.use(cookieParser());
 
 // Global API rate limiter (moderate — tighter limits on auth routes)
 app.use(apiRateLimit);
+
+// Sanitize request bodies — trim strings, remove null bytes
+app.use(sanitizeBody);
+
+// Prevent HTTP parameter pollution — deduplicate query params
+app.use(preventParamPollution);
+
+// CSRF protection — double-submit cookie (skips Bearer token & WebSocket requests)
+app.use(csrfProtection);
 
 // ── Static file serving (uploaded map backgrounds) ───────────────────
 
@@ -155,25 +179,48 @@ server.listen(config.port, () => {
 // ── Graceful shutdown ────────────────────────────────────────────────
 
 /**
- * Gracefully close the HTTP server and Socket.IO connections, then exit.
+ * Gracefully close the HTTP server, Socket.IO connections, and Prisma client,
+ * then exit. Shutdown order: HTTP server → Socket.IO → Prisma.
  */
 function shutdown(signal: string): void {
   logger.info(`${signal} received — shutting down gracefully`, { context: 'server' });
-
-  io.close(() => {
-    logger.info('Socket.IO closed', { context: 'server' });
-  });
-
-  server.close(() => {
-    logger.info('HTTP server closed', { context: 'server' });
-    process.exit(0);
-  });
 
   // Force exit after 10 seconds if graceful shutdown stalls
   setTimeout(() => {
     logger.error('Forced exit after timeout', { context: 'server' });
     process.exit(1);
   }, 10_000).unref();
+
+  // 1. Stop accepting new HTTP connections
+  server.close(() => {
+    logger.info('HTTP server closed', { context: 'server' });
+
+    // 2. Close all Socket.IO connections
+    io.close(() => {
+      logger.info('Socket.IO closed', { context: 'server' });
+
+      // 3. Disconnect Prisma with its own timeout guard
+      const prismaTimeout = setTimeout(() => {
+        logger.error('Prisma disconnect timed out — forcing exit', { context: 'server' });
+        process.exit(1);
+      }, 5_000);
+      prismaTimeout.unref();
+
+      disconnectPrisma()
+        .then(() => {
+          clearTimeout(prismaTimeout);
+          process.exit(0);
+        })
+        .catch((err: unknown) => {
+          clearTimeout(prismaTimeout);
+          logger.error('Error disconnecting Prisma', {
+            context: 'server',
+            error: err instanceof Error ? err.message : String(err),
+          });
+          process.exit(1);
+        });
+    });
+  });
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));

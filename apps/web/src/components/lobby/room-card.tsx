@@ -10,17 +10,17 @@ interface RoomCardProps {
 }
 
 const statusConfig: Record<
-  RoomStatus,
+  string,
   { label: string; variant: 'success' | 'warning' | 'info' | 'danger' | 'neutral' }
 > = {
-  waiting: { label: 'Waiting', variant: 'warning' },
-  active: { label: 'In Progress', variant: 'success' },
-  paused: { label: 'Paused', variant: 'info' },
-  ended: { label: 'Ended', variant: 'neutral' },
+  WAITING: { label: 'Waiting', variant: 'warning' },
+  ACTIVE: { label: 'In Progress', variant: 'success' },
+  PAUSED: { label: 'Paused', variant: 'info' },
+  ENDED: { label: 'Ended', variant: 'neutral' },
 };
 
 export function RoomCard({ room, onClick }: RoomCardProps) {
-  const { label, variant } = statusConfig[room.status];
+  const { label, variant } = statusConfig[room.status] ?? { label: room.status, variant: 'neutral' as const };
   const playerCount = room.playerCount ?? room.players?.length ?? 0;
 
   return (

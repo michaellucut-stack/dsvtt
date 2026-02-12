@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { validate } from '../../middleware/validation.js';
 import { authenticateToken } from '../../middleware/auth.js';
 import { rateLimit } from '../../middleware/rate-limit.js';
+import { csrfTokenHandler } from '../../middleware/csrf.js';
 import { registerSchema, loginSchema, refreshSchema } from './auth.schemas.js';
 import * as authService from './auth.service.js';
 
@@ -12,6 +13,15 @@ export const authRouter = Router();
 // Apply a stricter rate limit to auth endpoints to mitigate brute-force attacks
 const authLimiter = rateLimit({ windowMs: 60_000, maxRequests: 20 });
 authRouter.use(authLimiter);
+
+/**
+ * GET /api/auth/csrf-token
+ *
+ * Generates a CSRF token, sets it as an HTTP-only cookie, and returns it in the
+ * response body. Clients must send this token in the `X-CSRF-Token` header on
+ * mutation requests.
+ */
+authRouter.get('/csrf-token', csrfTokenHandler);
 
 /**
  * POST /api/auth/register

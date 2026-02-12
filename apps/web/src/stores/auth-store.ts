@@ -13,14 +13,19 @@ interface AuthTokens {
   refreshToken: string;
 }
 
-interface LoginResponse {
-  user: User;
-  accessToken: string;
-  refreshToken: string;
+interface ApiEnvelope<T> {
+  ok: boolean;
+  data: T;
 }
 
-interface RegisterResponse {
+interface LoginData {
   user: User;
+  tokens: AuthTokens;
+}
+
+interface RegisterData {
+  user: User;
+  tokens: AuthTokens;
 }
 
 interface AuthState {
@@ -48,15 +53,15 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
 
       async login(email: string, password: string) {
-        const data = await apiClient.post<LoginResponse>(
+        const res = await apiClient.post<ApiEnvelope<LoginData>>(
           '/api/auth/login',
           { email, password },
         );
 
         set({
-          user: data.user,
-          accessToken: data.accessToken,
-          refreshToken: data.refreshToken,
+          user: res.data.user,
+          accessToken: res.data.tokens.accessToken,
+          refreshToken: res.data.tokens.refreshToken,
         });
       },
 
@@ -65,10 +70,15 @@ export const useAuthStore = create<AuthState>()(
         email: string,
         password: string,
       ) {
-        await apiClient.post<RegisterResponse>('/api/auth/register', {
-          displayName,
-          email,
-          password,
+        const res = await apiClient.post<ApiEnvelope<RegisterData>>(
+          '/api/auth/register',
+          { displayName, email, password },
+        );
+
+        set({
+          user: res.data.user,
+          accessToken: res.data.tokens.accessToken,
+          refreshToken: res.data.tokens.refreshToken,
         });
       },
 
