@@ -2,6 +2,7 @@
 
 import { memo } from 'react';
 import { Group, Line } from 'react-konva';
+import 'konva/lib/shapes/Line';
 
 interface GridLayerProps {
   gridWidth: number;

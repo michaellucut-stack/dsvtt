@@ -3,6 +3,14 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { Image as KonvaImage, Rect } from 'react-konva';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+
+/** Resolve a potentially relative URL against the API server origin. */
+function resolveAssetUrl(url: string): string {
+  if (url.startsWith('/')) return `${API_BASE_URL}${url}`;
+  return url;
+}
+
 interface MapBackgroundProps {
   backgroundUrl: string | null;
   width: number;
@@ -13,11 +21,7 @@ interface MapBackgroundProps {
  * Loads and renders the map background image using Konva.Image.
  * Falls back to a dark rectangle if no image is provided or while loading.
  */
-function MapBackgroundInner({
-  backgroundUrl,
-  width,
-  height,
-}: MapBackgroundProps) {
+function MapBackgroundInner({ backgroundUrl, width, height }: MapBackgroundProps) {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [loading, setLoading] = useState(false);
   const mountedRef = useRef(true);
@@ -53,7 +57,7 @@ function MapBackgroundInner({
       }
     };
 
-    img.src = backgroundUrl;
+    img.src = resolveAssetUrl(backgroundUrl);
 
     return () => {
       img.onload = null;
