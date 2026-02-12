@@ -16,7 +16,8 @@
     "build": "tsc --build",
     "clean": "rm -rf dist",
     "lint": "eslint src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "files": [
     "dist",

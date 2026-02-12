@@ -58,17 +58,9 @@ export default function RoomDetailPage() {
   if (!currentRoom) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <h3 className="font-heading text-lg font-semibold text-parchment-300">
-          Room not found
-        </h3>
-        <p className="mt-1 text-sm text-parchment-400">
-          This room may no longer exist.
-        </p>
-        <Button
-          variant="secondary"
-          onClick={() => router.push('/lobby')}
-          className="mt-4"
-        >
+        <h3 className="font-heading text-lg font-semibold text-parchment-300">Room not found</h3>
+        <p className="mt-1 text-sm text-parchment-400">This room may no longer exist.</p>
+        <Button variant="secondary" onClick={() => router.push('/lobby')} className="mt-4">
           Back to Lobby
         </Button>
       </div>
@@ -85,8 +77,10 @@ export default function RoomDetailPage() {
   const canStart =
     isDirector && (currentRoom.status as string) === 'WAITING' && players.length >= 1;
 
-  const { label: statusLabel, variant: statusVariant } =
-    statusConfig[currentRoom.status] ?? { label: currentRoom.status, variant: 'neutral' as const };
+  const { label: statusLabel, variant: statusVariant } = statusConfig[currentRoom.status] ?? {
+    label: currentRoom.status,
+    variant: 'neutral' as const,
+  };
 
   async function handleJoin() {
     try {
@@ -160,8 +154,8 @@ export default function RoomDetailPage() {
               </Button>
             )}
             {canStart && (
-              <Button variant="primary" onClick={handleStart}>
-                Start Game
+              <Button variant="primary" onClick={handleStart} disabled={loading}>
+                {loading ? 'Starting...' : 'Start Game'}
               </Button>
             )}
             {isJoined && (
@@ -189,9 +183,7 @@ export default function RoomDetailPage() {
 
       {/* Player list */}
       <div className="mt-6 rounded-panel border border-charcoal-700/60 bg-charcoal-900/80 p-6 shadow-card backdrop-blur-sm">
-        <h3 className="mb-4 font-heading text-base font-semibold text-parchment-100">
-          Players
-        </h3>
+        <h3 className="mb-4 font-heading text-base font-semibold text-parchment-100">Players</h3>
         <PlayerList players={players} directorId={currentRoom.directorId} />
       </div>
     </div>

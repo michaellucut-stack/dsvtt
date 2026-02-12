@@ -1,128 +1,151 @@
 import { test, expect } from '@playwright/test';
+import { loginViaApi, registerViaApi } from '../helpers/auth';
+import { createRoomViaApi } from '../helpers/room';
 
 // =============================================================================
-// Lobby E2E Tests — Room list, creation, and details
+// Lobby E2E Tests — Room list, creation, empty state, and navigation
 // =============================================================================
 
-/**
- * Helper: log in as a test user and navigate to the lobby/dashboard.
- * Assumes the user is already registered (seeded or from a prior test).
- */
-async function loginAndNavigateToLobby(page: import('@playwright/test').Page) {
-  await page.goto('/login');
-
-  await page.getByLabel(/email/i).fill('test@example.com');
-  await page.getByLabel(/password/i).fill('TestPassword123!');
-  await page.getByRole('button', { name: /log\s?in|sign\s?in/i }).click();
-
-  // Wait for redirect to dashboard/lobby
-  await expect(page).toHaveURL(/\/(dashboard|lobby|home)?$/, { timeout: 10_000 });
-}
+const timestamp = Date.now();
+const testEmail = `e2e-lobby-${timestamp}@example.com`;
+const testPassword = 'TestPassword123!';
 
 test.describe('Lobby', () => {
-  test('should see empty lobby after login', async ({ page }) => {
-    await loginAndNavigateToLobby(page);
+  test.beforeAll(async ({ browser }) => {
+    // Seed a user for lobby tests
+    const page = await browser.newPage();
+    await page.goto('/login');
+    await registerViaApi(page, {
+      email: testEmail,
+      displayName: 'Lobby Tester',
+      password: testPassword,
+    });
+    await page.close();
+  });
 
-    // Navigate to lobby if not already there
-    const lobbyLink = page.getByRole('link', { name: /lobby|rooms|browse/i });
-    if (await lobbyLink.isVisible().catch(() => false)) {
-      await lobbyLink.click();
-    }
+  test('should show lobby page after login', async ({ page }) => {
+    await page.goto('/login');
+    await loginViaApi(page, testEmail, testPassword);
+    await page.goto('/lobby');
 
-    // Verify the lobby page is visible
+    // The lobby page heading should be visible
+    await expect(page.getByRole('heading', { name: /Game Lobby/i })).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // The "Create Room" button should be visible
     await expect(
-      page.getByText(/lobby|rooms|no rooms|empty/i),
-    ).toBeVisible({ timeout: 10_000 });
-
-    // Should display an empty state or no room cards
-    const roomCards = page.getByTestId('room-card');
-    const roomCount = await roomCards.count();
-
-    // Either zero room cards or an explicit "no rooms" message
-    if (roomCount === 0) {
-      await expect(
-        page.getByText(/no rooms|empty|create.*first|no games/i),
-      ).toBeVisible({ timeout: 5_000 });
-    }
+      page.getByRole('button', { name: /Create Room/i }),
+    ).toBeVisible();
   });
 
-  test('should create a room and see it in the lobby', async ({ page }) => {
-    await loginAndNavigateToLobby(page);
+  test('should show empty state when no rooms exist', async ({ page }) => {
+    await page.goto('/login');
+    await loginViaApi(page, testEmail, testPassword);
+    await page.goto('/lobby');
 
-    // Navigate to lobby
-    const lobbyLink = page.getByRole('link', { name: /lobby|rooms|browse/i });
-    if (await lobbyLink.isVisible().catch(() => false)) {
-      await lobbyLink.click();
-    }
+    // Wait for the lobby to finish loading
+    await expect(page.getByRole('heading', { name: /Game Lobby/i })).toBeVisible({
+      timeout: 10_000,
+    });
 
-    // Click create room button
-    await page.getByRole('button', { name: /create.*room|new.*room|create.*game/i }).click();
+    // The empty state shows "No rooms yet" or room cards
+    // (This test may see rooms if other tests created them — but with a fresh
+    //  user seed per timestamp the lobby starts empty.)
+    const noRoomsHeading = page.getByRole('heading', { name: /No rooms yet/i });
+    const roomGrid = page.locator('.grid');
 
-    // Fill in room creation form
-    await page.getByLabel(/room name|name/i).fill('E2E Test Campaign');
-    await page.getByLabel(/max.*players|players/i).fill('6');
-
-    // Submit
-    await page.getByRole('button', { name: /create|submit|save/i }).click();
-
-    // Verify the room appears in the lobby
+    // Either empty state or rooms grid should be visible
     await expect(
-      page.getByText('E2E Test Campaign'),
+      noRoomsHeading.or(roomGrid),
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  test('should click a room card to view details', async ({ page }) => {
-    await loginAndNavigateToLobby(page);
+  test('should create a room via modal and see it in the list', async ({ page }) => {
+    await page.goto('/login');
+    await loginViaApi(page, testEmail, testPassword);
+    await page.goto('/lobby');
 
-    // Navigate to lobby
-    const lobbyLink = page.getByRole('link', { name: /lobby|rooms|browse/i });
-    if (await lobbyLink.isVisible().catch(() => false)) {
-      await lobbyLink.click();
-    }
+    await expect(page.getByRole('heading', { name: /Game Lobby/i })).toBeVisible({
+      timeout: 10_000,
+    });
 
-    // Wait for rooms to load
-    await page.waitForTimeout(2000);
+    // Click "Create Room" button
+    await page.getByRole('button', { name: /Create Room/i }).first().click();
 
-    // Click the first room card (or a specific one if available)
-    const roomCard = page.getByTestId('room-card').first().or(
-      page.getByRole('link', { name: /campaign|room|game/i }).first(),
-    );
+    // The modal should open with title "Create New Room"
+    await expect(
+      page.getByRole('dialog', { name: /Create New Room/i }),
+    ).toBeVisible({ timeout: 5_000 });
 
-    if (await roomCard.isVisible().catch(() => false)) {
-      await roomCard.click();
+    // Fill in room name
+    await page.getByLabel(/Room Name/i).fill('E2E Test Campaign');
 
-      // Should navigate to room detail page
-      await expect(page).toHaveURL(/\/rooms\/|\/room\//, { timeout: 10_000 });
+    // Fill in max players (clear default first)
+    const maxPlayersInput = page.getByLabel(/Max Players/i);
+    await maxPlayersInput.clear();
+    await maxPlayersInput.fill('6');
 
-      // Should see room details
-      await expect(
-        page.getByText(/players|status|director|waiting/i),
-      ).toBeVisible({ timeout: 5_000 });
-    }
+    // Submit the form
+    await page.getByRole('button', { name: /^Create Room$/i }).click();
+
+    // After creation, the app navigates to the room detail page
+    await expect(page).toHaveURL(/\/lobby\/rooms\//, { timeout: 10_000 });
+
+    // The room name should be visible on the detail page
+    await expect(page.getByText('E2E Test Campaign')).toBeVisible({ timeout: 5_000 });
   });
 
-  test('should display correct player count on room card', async ({ page }) => {
-    await loginAndNavigateToLobby(page);
+  test('should show room card with name, status badge, and player count', async ({ page }) => {
+    // Create a room via API for this test
+    await page.goto('/login');
+    await loginViaApi(page, testEmail, testPassword);
+
+    const roomId = await createRoomViaApi(page, `Card Room ${timestamp}`, 5);
 
     // Navigate to lobby
-    const lobbyLink = page.getByRole('link', { name: /lobby|rooms|browse/i });
-    if (await lobbyLink.isVisible().catch(() => false)) {
-      await lobbyLink.click();
-    }
+    await page.goto('/lobby');
+    await expect(page.getByRole('heading', { name: /Game Lobby/i })).toBeVisible({
+      timeout: 10_000,
+    });
 
-    // Wait for rooms to load
-    await page.waitForTimeout(2000);
+    // Find the room card by name
+    const roomCard = page.getByRole('button', { name: new RegExp(`Card Room ${timestamp}`) });
+    await expect(roomCard).toBeVisible({ timeout: 10_000 });
 
-    // Check that room cards display player counts
-    const roomCard = page.getByTestId('room-card').first().or(
-      page.locator('[class*="room"]').first(),
-    );
+    // The card should show the "Waiting" status badge
+    await expect(roomCard.getByText(/Waiting/i)).toBeVisible();
 
-    if (await roomCard.isVisible().catch(() => false)) {
-      // Player count should be visible (e.g. "1/6", "2/4 players")
-      await expect(
-        roomCard.getByText(/\d+\s*\/\s*\d+|\d+\s*player/i),
-      ).toBeVisible({ timeout: 5_000 });
-    }
+    // The card should show player count like "1/5"
+    await expect(roomCard.getByText(/\/5/)).toBeVisible();
+  });
+
+  test('should click room card to navigate to room detail page', async ({ page }) => {
+    // Create a room via API
+    await page.goto('/login');
+    await loginViaApi(page, testEmail, testPassword);
+
+    const roomId = await createRoomViaApi(page, `Click Room ${timestamp}`, 4);
+
+    // Navigate to lobby
+    await page.goto('/lobby');
+    await expect(page.getByRole('heading', { name: /Game Lobby/i })).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Click the room card
+    const roomCard = page.getByRole('button', { name: new RegExp(`Click Room ${timestamp}`) });
+    await expect(roomCard).toBeVisible({ timeout: 10_000 });
+    await roomCard.click();
+
+    // Should navigate to the room detail page
+    await expect(page).toHaveURL(new RegExp(`/lobby/rooms/${roomId}`), {
+      timeout: 10_000,
+    });
+
+    // Room detail page should show the room name
+    await expect(
+      page.getByRole('heading', { name: new RegExp(`Click Room ${timestamp}`) }),
+    ).toBeVisible();
   });
 });

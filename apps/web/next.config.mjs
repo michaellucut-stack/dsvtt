@@ -1,6 +1,5 @@
-import type { NextConfig } from 'next';
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   transpilePackages: ['@dsvtt/shared', '@dsvtt/events'],
   reactStrictMode: true,
 
@@ -9,13 +8,7 @@ const nextConfig: NextConfig = {
 
   experimental: {
     // Tree-shake barrel imports from large packages
-    optimizePackageImports: [
-      'zustand',
-      'socket.io-client',
-      'react-konva',
-      'konva',
-      'lucide-react',
-    ],
+    optimizePackageImports: ['zustand', 'socket.io-client', 'react-konva', 'konva', 'lucide-react'],
   },
 };
 

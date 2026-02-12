@@ -16,11 +16,12 @@
     "build": "tsc --build",
     "clean": "rm -rf dist",
     "lint": "eslint src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@dsvtt/shared": "*",
-    "@dsvtt/events": "*"
+    "@dsvtt/shared": "workspace:*",
+    "@dsvtt/events": "workspace:*"
   },
   "files": [
     "dist",

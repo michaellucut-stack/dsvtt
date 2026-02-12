@@ -54,10 +54,7 @@ function serializeSession(session: {
  * @throws {AppError} 404 if room not found, 403 if not director.
  * @throws {AppError} 400 if there is already an active/paused session.
  */
-export async function startSession(
-  roomId: string,
-  userId: string,
-): Promise<SessionItem> {
+export async function startSession(roomId: string, userId: string): Promise<SessionItem> {
   await requireDirector(roomId, userId);
 
   // Check for existing active or paused session
@@ -68,12 +65,28 @@ export async function startSession(
     },
   });
 
-  if (existing) {
+  if (existing && existing.status !== 'SETUP') {
     throw new AppError(
       'Room already has an active or pending session',
       400,
       'SESSION_ALREADY_ACTIVE',
     );
+  }
+
+  // If a stale SETUP session exists, transition it to ACTIVE instead of
+  // creating a duplicate.
+  if (existing && existing.status === 'SETUP') {
+    const [session] = await prisma.$transaction([
+      prisma.gameSession.update({
+        where: { id: existing.id },
+        data: { status: 'ACTIVE', startedAt: new Date() },
+      }),
+      prisma.room.update({
+        where: { id: roomId },
+        data: { status: 'ACTIVE' },
+      }),
+    ]);
+    return serializeSession(session);
   }
 
   const [session] = await prisma.$transaction([
@@ -209,9 +222,19 @@ export async function updateSessionStatus(
     ...(newStatus === 'ACTIVE'
       ? [prisma.room.update({ where: { id: session.roomId }, data: { status: 'ACTIVE' as const } })]
       : newStatus === 'PAUSED'
-        ? [prisma.room.update({ where: { id: session.roomId }, data: { status: 'PAUSED' as const } })]
+        ? [
+            prisma.room.update({
+              where: { id: session.roomId },
+              data: { status: 'PAUSED' as const },
+            }),
+          ]
         : newStatus === 'ENDED'
-          ? [prisma.room.update({ where: { id: session.roomId }, data: { status: 'WAITING' as const } })]
+          ? [
+              prisma.room.update({
+                where: { id: session.roomId },
+                data: { status: 'WAITING' as const },
+              }),
+            ]
           : []),
   ]);
 

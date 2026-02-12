@@ -4,7 +4,6 @@
  * Creates baseline test data:
  *   - 2 users (director + player)
  *   - 1 test room owned by the director
- *   - 1 game session in SETUP status
  *   - Both users added to the room with appropriate roles
  *
  * Usage:
@@ -13,6 +12,7 @@
  */
 
 import { PrismaClient, RoomStatus, PlayerRole, SessionStatus } from '@prisma/client';
+// SessionStatus used only for cleanup of stale seed sessions
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -89,18 +89,15 @@ async function main(): Promise<void> {
 
   console.log(`  ✓ Room players: director + player assigned`);
 
-  // ── Game Session ────────────────────────────────────────────────────────
-  const session = await prisma.gameSession.upsert({
-    where: { id: '00000000-0000-4000-a000-000000000002' },
-    update: {},
-    create: {
+  // Clean up any stale SETUP sessions left from previous seeds
+  await prisma.gameSession.deleteMany({
+    where: {
       id: '00000000-0000-4000-a000-000000000002',
-      roomId: room.id,
       status: SessionStatus.SETUP,
     },
   });
 
-  console.log(`  ✓ Game session: ${session.id} (${session.status})`);
+  console.log(`  ✓ Cleaned up stale seed sessions`);
 
   console.log('\n✅ Seed complete.');
 }

@@ -95,8 +95,7 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
       set((state) => ({ rooms: [room, ...state.rooms] }));
       return room;
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to create room';
+      const message = err instanceof Error ? err.message : 'Failed to create room';
       set({ error: message });
       throw err;
     }
@@ -108,8 +107,7 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
       const res = await apiClient.post<{ ok: boolean; data: Room }>(`/api/rooms/${roomId}/join`);
       set({ currentRoom: res.data });
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to join room';
+      const message = err instanceof Error ? err.message : 'Failed to join room';
       set({ error: message });
       throw err;
     }
@@ -121,22 +119,27 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
       await apiClient.post(`/api/rooms/${roomId}/leave`);
       set({ currentRoom: null });
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to leave room';
+      const message = err instanceof Error ? err.message : 'Failed to leave room';
       set({ error: message });
       throw err;
     }
   },
 
   async startGame(roomId: string) {
-    set({ error: null });
+    set({ loading: true, error: null });
     try {
-      await apiClient.post(`/api/rooms/${roomId}/start`);
+      await apiClient.post(`/api/rooms/${roomId}/sessions`);
+      // Optimistically update room status so the button disappears immediately
+      const currentRoom = get().currentRoom;
+      if (currentRoom?.id === roomId) {
+        set({ currentRoom: { ...currentRoom, status: 'ACTIVE' as RoomStatus } });
+      }
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to start game';
+      const message = err instanceof Error ? err.message : 'Failed to start game';
       set({ error: message });
       throw err;
+    } finally {
+      set({ loading: false });
     }
   },
 
@@ -183,9 +186,7 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
       // Update lobby list player count
       set((state) => ({
         rooms: state.rooms.map((r) =>
-          r.id === payload.roomId
-            ? { ...r, playerCount: (r.playerCount ?? 0) + 1 }
-            : r,
+          r.id === payload.roomId ? { ...r, playerCount: (r.playerCount ?? 0) + 1 } : r,
         ),
       }));
 
@@ -227,9 +228,7 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
       // Update current room players
       const currentRoom = get().currentRoom;
       if (currentRoom?.id === payload.roomId) {
-        const players = (currentRoom.players ?? []).filter(
-          (p) => p.userId !== payload.userId,
-        );
+        const players = (currentRoom.players ?? []).filter((p) => p.userId !== payload.userId);
         set({
           currentRoom: {
             ...currentRoom,

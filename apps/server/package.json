@@ -16,11 +16,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@dsvtt/auth": "*",
-    "@dsvtt/dice-engine": "*",
-    "@dsvtt/events": "*",
-    "@dsvtt/game-engine": "*",
-    "@dsvtt/shared": "*",
+    "@dsvtt/auth": "workspace:*",
+    "@dsvtt/dice-engine": "workspace:*",
+    "@dsvtt/events": "workspace:*",
+    "@dsvtt/game-engine": "workspace:*",
+    "@dsvtt/shared": "workspace:*",
     "@prisma/client": "^6.9.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

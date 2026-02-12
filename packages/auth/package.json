@@ -20,14 +20,15 @@
     "build": "tsc --build",
     "clean": "rm -rf dist",
     "lint": "eslint src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "files": [
     "dist",
     "src"
   ],
   "dependencies": {
-    "@dsvtt/shared": "*",
+    "@dsvtt/shared": "workspace:*",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
     "passport": "^0.7.0",
