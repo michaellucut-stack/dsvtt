@@ -33,6 +33,7 @@ import {
 } from './middleware/security.js';
 import { csrfTokenHandler, csrfProtection } from './middleware/csrf.js';
 import { registerConnectionHandler } from './socket/connection.js';
+import { setIO } from './config/socket-io.js';
 import { logger } from './utils/logger.js';
 import { ensureUploadDir } from './utils/upload.js';
 
@@ -160,6 +161,9 @@ const io = new SocketIOServer<ClientToServerEvents, ServerToClientEvents>(server
   pingInterval: 25_000,
   pingTimeout: 20_000,
 });
+
+// Make the io instance available to REST route handlers via singleton
+setIO(io);
 
 // WebSocket origin validation — runs before auth middleware
 io.use(wsOriginValidation(allowedOrigins));

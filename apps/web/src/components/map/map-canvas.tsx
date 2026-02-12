@@ -18,6 +18,8 @@ import { TokenLayer } from './token-layer';
 import { FogLayer } from './fog-layer';
 import { MapBackground } from './map-background';
 import { MapToolbar } from './map-toolbar';
+import { TokenContextMenu } from './token-context-menu';
+import { TokenDetailPanel } from './token-detail-panel';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -44,6 +46,11 @@ export function MapCanvas() {
   const gridVisible = useMapStore((s) => s.gridVisible);
   const setViewport = useMapStore((s) => s.setViewport);
   const setSelectedToken = useMapStore((s) => s.setSelectedToken);
+  const setImageNaturalSize = useMapStore((s) => s.setImageNaturalSize);
+  const movingToken = useMapStore((s) => s.movingToken);
+  const moveToken = useMapStore((s) => s.moveToken);
+  const cancelMovingToken = useMapStore((s) => s.cancelMovingToken);
+  const closeContextMenu = useMapStore((s) => s.closeContextMenu);
 
   // Auth/room state for role determination
   const userId = useAuthStore((s) => s.user?.id);
@@ -107,6 +114,15 @@ export function MapCanvas() {
     [viewport, setViewport],
   );
 
+  // ── Background image loaded callback ─────────────────────────────────
+
+  const handleImageLoaded = useCallback(
+    (naturalWidth: number, naturalHeight: number) => {
+      setImageNaturalSize(naturalWidth, naturalHeight);
+    },
+    [setImageNaturalSize],
+  );
+
   // ── Stage drag (pan) ──────────────────────────────────────────────────
 
   const handleDragEnd = useCallback(
@@ -121,21 +137,48 @@ export function MapCanvas() {
     [setViewport],
   );
 
-  // ── Click on empty space to deselect ──────────────────────────────────
+  // ── Click on empty space: deselect or click-to-move ──────────────────
+  // effectiveGridSize is computed below after early return; use a ref to
+  // avoid "used before declaration" in the callback.
+  const effectiveGridSizeRef = useRef(64);
 
   const handleStageClick = useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
-      // Only if clicking the stage background (not a token)
-      if (e.target === stageRef.current) {
-        setSelectedToken(null);
+      // Close context menu on any click
+      closeContextMenu();
+
+      // Only process clicks on the stage background (not on tokens)
+      if (e.target !== stageRef.current) return;
+
+      // If we're in click-to-move mode, move the token to the clicked cell
+      if (movingToken) {
+        const stage = stageRef.current;
+        if (!stage) return;
+        const pointer = stage.getPointerPosition();
+        if (!pointer) return;
+
+        const gs = effectiveGridSizeRef.current;
+        const scale = viewport.scale;
+        const gridX = Math.floor((pointer.x - viewport.x) / scale / gs);
+        const gridY = Math.floor((pointer.y - viewport.y) / scale / gs);
+        const clampedX = Math.max(0, gridX);
+        const clampedY = Math.max(0, gridY);
+
+        moveToken(movingToken.tokenId, clampedX, clampedY);
+        cancelMovingToken();
+        return;
       }
+
+      // Default: deselect
+      setSelectedToken(null);
     },
-    [setSelectedToken],
+    [setSelectedToken, closeContextMenu, movingToken, moveToken, cancelMovingToken, viewport],
   );
 
   // ── Stage draggable based on tool ─────────────────────────────────────
 
-  const isDraggable = tool === 'move' || tool === 'select';
+  // Disable drag when in click-to-move mode so the click lands on the stage
+  const isDraggable = !movingToken && (tool === 'move' || tool === 'select');
 
   if (!currentMap) {
     return (
@@ -148,13 +191,50 @@ export function MapCanvas() {
     );
   }
 
-  const totalWidth = currentMap.gridWidth * currentMap.gridSize;
-  const totalHeight = currentMap.gridHeight * currentMap.gridSize;
+  // When the background image is loaded, use its natural size as the canvas size.
+  // The grid cell size is derived so the grid fits exactly over the image.
+  // When no image is loaded, fall back to gridWidth * gridSize.
+  const imgW = currentMap.imageNaturalWidth;
+  const imgH = currentMap.imageNaturalHeight;
+  const totalWidth = imgW ?? currentMap.gridWidth * currentMap.gridSize;
+  const totalHeight = imgH ?? currentMap.gridHeight * currentMap.gridSize;
+
+  // Derive grid cell size from image dimensions so the grid fits the image exactly.
+  // Use the smaller of width-derived and height-derived cell sizes so cells are square.
+  const effectiveGridSize =
+    imgW && imgH
+      ? Math.min(imgW / currentMap.gridWidth, imgH / currentMap.gridHeight)
+      : currentMap.gridSize;
+
+  // Keep the ref in sync for the click handler
+  effectiveGridSizeRef.current = effectiveGridSize;
 
   return (
-    <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-charcoal-950">
+    <div
+      ref={containerRef}
+      className="relative h-full w-full overflow-hidden bg-charcoal-950"
+      onContextMenu={(e) => e.preventDefault()}
+    >
       {/* Toolbar overlay */}
       <MapToolbar isDirector={isDirector} />
+
+      {/* Director-only overlays */}
+      {isDirector && <TokenContextMenu />}
+      {isDirector && <TokenDetailPanel />}
+
+      {/* Click-to-move indicator */}
+      {movingToken && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 rounded-panel border border-cyan-500/40 bg-charcoal-900/90 px-4 py-2 text-xs text-cyan-300 shadow-panel backdrop-blur-sm">
+          Click a cell to move token &mdash;{' '}
+          <button
+            type="button"
+            onClick={cancelMovingToken}
+            className="underline text-parchment-300 hover:text-parchment-100"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       {/* Konva Stage */}
       {dimensions.width > 0 && dimensions.height > 0 && (
@@ -171,7 +251,7 @@ export function MapCanvas() {
           onDragEnd={handleDragEnd}
           onClick={handleStageClick}
           onTap={handleStageClick}
-          style={{ cursor: tool === 'move' ? 'grab' : 'default' }}
+          style={{ cursor: movingToken ? 'crosshair' : tool === 'move' ? 'grab' : 'default' }}
         >
           {/* Layer 1: Background */}
           <Layer listening={false}>
@@ -179,6 +259,7 @@ export function MapCanvas() {
               backgroundUrl={currentMap.backgroundUrl}
               width={totalWidth}
               height={totalHeight}
+              onImageLoaded={handleImageLoaded}
             />
           </Layer>
 
@@ -187,7 +268,7 @@ export function MapCanvas() {
             <GridLayer
               gridWidth={currentMap.gridWidth}
               gridHeight={currentMap.gridHeight}
-              gridSize={currentMap.gridSize}
+              gridSize={effectiveGridSize}
               visible={gridVisible}
             />
           </Layer>
@@ -196,7 +277,7 @@ export function MapCanvas() {
           <Layer>
             <TokenLayer
               tokens={tokens}
-              gridSize={currentMap.gridSize}
+              gridSize={effectiveGridSize}
               selectedTokenId={selectedTokenId}
               isDirector={isDirector}
             />
@@ -206,16 +287,14 @@ export function MapCanvas() {
           <Layer>
             <FogLayer
               fogRegions={fogRegions}
-              gridSize={currentMap.gridSize}
+              gridSize={effectiveGridSize}
               isDirector={isDirector}
             />
           </Layer>
 
           {/* Layer 5: GM overlay — only visible to director */}
           {isDirector && (
-            <Layer listening={false}>
-              {/* GM-only annotations / indicators can go here */}
-            </Layer>
+            <Layer listening={false}>{/* GM-only annotations / indicators can go here */}</Layer>
           )}
         </Stage>
       )}

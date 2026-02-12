@@ -314,10 +314,14 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
       roomId: string;
       status: RoomStatus;
     }) => {
+      // Normalise status to uppercase to match the Prisma/REST convention
+      // used throughout the frontend (socket events send lowercase).
+      const normalisedStatus = (payload.status?.toUpperCase() ?? 'ACTIVE') as RoomStatus;
+
       // Update lobby room status
       set((state) => ({
         rooms: state.rooms.map((r) =>
-          r.id === payload.roomId ? { ...r, status: payload.status } : r,
+          r.id === payload.roomId ? { ...r, status: normalisedStatus } : r,
         ),
       }));
 
@@ -325,7 +329,7 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
       const currentRoom = get().currentRoom;
       if (currentRoom?.id === payload.roomId) {
         set({
-          currentRoom: { ...currentRoom, status: payload.status },
+          currentRoom: { ...currentRoom, status: normalisedStatus },
           activeSessionId: payload.sessionId,
         });
       }

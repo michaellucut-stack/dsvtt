@@ -15,6 +15,19 @@ import type {
 
 export type MapTool = 'select' | 'move' | 'fog' | 'measure';
 
+/** Token context menu state. */
+export interface TokenContextMenu {
+  tokenId: string;
+  /** Screen-space position of the menu. */
+  x: number;
+  y: number;
+}
+
+/** Token being moved via click-to-move (select token, click destination). */
+export interface MovingToken {
+  tokenId: string;
+}
+
 export interface Viewport {
   x: number;
   y: number;
@@ -28,6 +41,10 @@ export interface MapData {
   gridHeight: number;
   gridSize: number;
   backgroundUrl: string | null;
+  /** Natural width of the loaded background image in pixels. */
+  imageNaturalWidth: number | null;
+  /** Natural height of the loaded background image in pixels. */
+  imageNaturalHeight: number | null;
 }
 
 // ─── State interface ────────────────────────────────────────────────────────
@@ -47,6 +64,12 @@ interface MapState {
   viewport: Viewport;
   /** Whether the grid overlay is visible. */
   gridVisible: boolean;
+  /** Token context menu (right-click). */
+  contextMenu: TokenContextMenu | null;
+  /** Token being click-to-moved (awaiting destination click). */
+  movingToken: MovingToken | null;
+  /** Token being edited (shows detail panel). */
+  editingTokenId: string | null;
   /** Loading flag. */
   loading: boolean;
   /** Error message. */
@@ -91,6 +114,23 @@ interface MapState {
   /** Toggle grid visibility. */
   toggleGrid: () => void;
 
+  /** Update grid dimensions (columns x rows). Recomputes gridSize to fit the image. */
+  updateGridDimensions: (gridWidth: number, gridHeight: number) => void;
+
+  /** Store the background image's natural dimensions once loaded. */
+  setImageNaturalSize: (width: number, height: number) => void;
+
+  /** Open the token context menu at screen position. */
+  openContextMenu: (tokenId: string, x: number, y: number) => void;
+  /** Close the token context menu. */
+  closeContextMenu: () => void;
+  /** Start click-to-move mode for a token. */
+  startMovingToken: (tokenId: string) => void;
+  /** Cancel click-to-move mode. */
+  cancelMovingToken: () => void;
+  /** Set the token being edited (detail panel). */
+  setEditingToken: (tokenId: string | null) => void;
+
   /** Fetch the first map for a session and load its state. */
   fetchSessionMap: (sessionId: string) => Promise<void>;
 
@@ -127,6 +167,9 @@ export const useMapStore = create<MapState>()((set, get) => ({
   tool: 'select',
   viewport: { x: 0, y: 0, scale: 1 },
   gridVisible: true,
+  contextMenu: null,
+  movingToken: null,
+  editingTokenId: null,
   loading: false,
   error: null,
 
@@ -145,6 +188,8 @@ export const useMapStore = create<MapState>()((set, get) => ({
           gridHeight: data.gridHeight,
           gridSize: data.gridSize,
           backgroundUrl: data.backgroundUrl,
+          imageNaturalWidth: null,
+          imageNaturalHeight: null,
         },
         tokens: data.tokens ?? [],
         fogRegions: data.fogRegions ?? [],
@@ -254,6 +299,48 @@ export const useMapStore = create<MapState>()((set, get) => ({
     set((state) => ({ gridVisible: !state.gridVisible }));
   },
 
+  updateGridDimensions(gridWidth: number, gridHeight: number) {
+    set((state) => {
+      if (!state.currentMap) return state;
+      return {
+        currentMap: { ...state.currentMap, gridWidth, gridHeight },
+      };
+    });
+  },
+
+  setImageNaturalSize(width: number, height: number) {
+    set((state) => {
+      if (!state.currentMap) return state;
+      return {
+        currentMap: {
+          ...state.currentMap,
+          imageNaturalWidth: width,
+          imageNaturalHeight: height,
+        },
+      };
+    });
+  },
+
+  openContextMenu(tokenId: string, x: number, y: number) {
+    set({ contextMenu: { tokenId, x, y }, movingToken: null });
+  },
+
+  closeContextMenu() {
+    set({ contextMenu: null });
+  },
+
+  startMovingToken(tokenId: string) {
+    set({ movingToken: { tokenId }, contextMenu: null, selectedTokenId: tokenId });
+  },
+
+  cancelMovingToken() {
+    set({ movingToken: null });
+  },
+
+  setEditingToken(tokenId: string | null) {
+    set({ editingTokenId: tokenId, contextMenu: null });
+  },
+
   clearMap() {
     set({
       currentMap: null,
@@ -322,6 +409,8 @@ export const useMapStore = create<MapState>()((set, get) => ({
           gridHeight: payload.gridHeight,
           gridSize: payload.gridSize,
           backgroundUrl: payload.backgroundUrl,
+          imageNaturalWidth: null,
+          imageNaturalHeight: null,
         },
       });
     };

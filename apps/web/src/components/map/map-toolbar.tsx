@@ -259,9 +259,7 @@ function AddTokenForm({ onClose }: AddTokenFormProps) {
       onSubmit={handleSubmit}
       className="absolute left-0 top-full mt-2 z-50 w-56 rounded-panel border border-charcoal-700/60 bg-charcoal-900/95 p-3 shadow-panel backdrop-blur-sm"
     >
-      <label className="block text-xs font-medium text-parchment-300 mb-1.5">
-        Token Name
-      </label>
+      <label className="block text-xs font-medium text-parchment-300 mb-1.5">Token Name</label>
       <input
         type="text"
         value={name}
@@ -290,6 +288,99 @@ function AddTokenForm({ onClose }: AddTokenFormProps) {
   );
 }
 
+// ─── Grid Settings Form ─────────────────────────────────────────────────────
+
+interface GridSettingsFormProps {
+  initialWidth: number;
+  initialHeight: number;
+  gridVisible: boolean;
+  onApply: (width: number, height: number) => void;
+  onHideGrid: () => void;
+  onClose: () => void;
+}
+
+function GridSettingsForm({
+  initialWidth,
+  initialHeight,
+  gridVisible,
+  onApply,
+  onHideGrid,
+  onClose,
+}: GridSettingsFormProps) {
+  const [cols, setCols] = useState(String(initialWidth));
+  const [rows, setRows] = useState(String(initialHeight));
+
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const w = parseInt(cols, 10);
+      const h = parseInt(rows, 10);
+      if (w > 0 && h > 0 && w <= 200 && h <= 200) {
+        onApply(w, h);
+      }
+    },
+    [cols, rows, onApply],
+  );
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="absolute left-0 top-full mt-2 z-50 w-56 rounded-panel border border-charcoal-700/60 bg-charcoal-900/95 p-3 shadow-panel backdrop-blur-sm"
+    >
+      <p className="mb-2 text-xs font-semibold text-parchment-200">Grid Dimensions</p>
+      <div className="mb-2 flex gap-2">
+        <div className="flex-1">
+          <label className="block text-[10px] font-medium text-parchment-400 mb-0.5">Columns</label>
+          <input
+            type="number"
+            min={1}
+            max={200}
+            value={cols}
+            onChange={(e) => setCols(e.target.value)}
+            autoFocus
+            className="block w-full rounded-card border border-charcoal-600 bg-charcoal-800/80 px-2 py-1 text-sm text-parchment-100 focus:border-gold-600 focus:outline-none focus:ring-1 focus:ring-gold-500/40"
+          />
+        </div>
+        <div className="flex-1">
+          <label className="block text-[10px] font-medium text-parchment-400 mb-0.5">Rows</label>
+          <input
+            type="number"
+            min={1}
+            max={200}
+            value={rows}
+            onChange={(e) => setRows(e.target.value)}
+            className="block w-full rounded-card border border-charcoal-600 bg-charcoal-800/80 px-2 py-1 text-sm text-parchment-100 focus:border-gold-600 focus:outline-none focus:ring-1 focus:ring-gold-500/40"
+          />
+        </div>
+      </div>
+      <div className="flex gap-1.5">
+        <button
+          type="submit"
+          className="flex-1 rounded-card bg-gold-600 px-2.5 py-1 text-xs font-semibold text-charcoal-950 transition-colors hover:bg-gold-500"
+        >
+          {gridVisible ? 'Update' : 'Show Grid'}
+        </button>
+        {gridVisible && (
+          <button
+            type="button"
+            onClick={onHideGrid}
+            className="flex-1 rounded-card bg-red-800/80 px-2.5 py-1 text-xs font-semibold text-parchment-300 transition-colors hover:bg-red-700/80"
+          >
+            Hide
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-card bg-charcoal-700 px-2.5 py-1 text-xs font-semibold text-parchment-300 transition-colors hover:bg-charcoal-600"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // ─── Map Toolbar ────────────────────────────────────────────────────────────
 
 export function MapToolbar({ isDirector }: MapToolbarProps) {
@@ -300,13 +391,12 @@ export function MapToolbar({ isDirector }: MapToolbarProps) {
   const setTool = useMapStore((s) => s.setTool);
   const setViewport = useMapStore((s) => s.setViewport);
   const toggleGrid = useMapStore((s) => s.toggleGrid);
+  const updateGridDimensions = useMapStore((s) => s.updateGridDimensions);
 
   const [showAddToken, setShowAddToken] = useState(false);
+  const [showGridSettings, setShowGridSettings] = useState(false);
 
-  const handleSetTool = useCallback(
-    (t: MapTool) => () => setTool(t),
-    [setTool],
-  );
+  const handleSetTool = useCallback((t: MapTool) => () => setTool(t), [setTool]);
 
   const handleZoomIn = useCallback(() => {
     const newScale = Math.min(5, viewport.scale * 1.25);
@@ -325,65 +415,62 @@ export function MapToolbar({ isDirector }: MapToolbarProps) {
   const zoomPercent = Math.round(viewport.scale * 100);
 
   return (
-    <div className="absolute left-3 top-3 z-10 flex flex-col gap-1.5">
+    <div className="absolute left-3 top-3 z-20 flex flex-col gap-1.5">
       {/* Tool selection group */}
-      <div className="flex items-center gap-1 rounded-panel border border-charcoal-700/60 bg-charcoal-900/90 p-1 shadow-panel backdrop-blur-sm">
-        <ToolButton
-          active={tool === 'select'}
-          onClick={handleSetTool('select')}
-          title="Select (V)"
-        >
+      <div className="relative z-10 flex items-center gap-1 rounded-panel border border-charcoal-700/60 bg-charcoal-900/90 p-1 shadow-panel backdrop-blur-sm">
+        <ToolButton active={tool === 'select'} onClick={handleSetTool('select')} title="Select (V)">
           <PointerIcon />
         </ToolButton>
 
-        <ToolButton
-          active={tool === 'move'}
-          onClick={handleSetTool('move')}
-          title="Pan (Space)"
-        >
+        <ToolButton active={tool === 'move'} onClick={handleSetTool('move')} title="Pan (Space)">
           <HandIcon />
         </ToolButton>
 
         {isDirector && (
-          <ToolButton
-            active={tool === 'fog'}
-            onClick={handleSetTool('fog')}
-            title="Fog of War (F)"
-          >
+          <ToolButton active={tool === 'fog'} onClick={handleSetTool('fog')} title="Fog of War (F)">
             <CloudIcon />
           </ToolButton>
         )}
 
-        <ToolButton
-          active={tool === 'measure'}
-          onClick={handleSetTool('measure')}
-          title="Measure (M)"
-        >
-          <RulerIcon />
-        </ToolButton>
-
-        {/* Divider */}
-        <div className="mx-0.5 h-6 w-px bg-charcoal-600" />
-
-        <ToolButton
-          active={gridVisible}
-          onClick={toggleGrid}
-          title="Toggle Grid (G)"
-        >
-          <GridIcon />
-        </ToolButton>
+        {isDirector ? (
+          <div className="relative">
+            <ToolButton
+              active={gridVisible}
+              onClick={() => setShowGridSettings((prev) => !prev)}
+              title="Grid Settings (G)"
+            >
+              <GridIcon />
+            </ToolButton>
+            {showGridSettings && (
+              <GridSettingsForm
+                initialWidth={currentMap?.gridWidth ?? 20}
+                initialHeight={currentMap?.gridHeight ?? 15}
+                gridVisible={gridVisible}
+                onApply={(w, h) => {
+                  updateGridDimensions(w, h);
+                  if (!gridVisible) toggleGrid();
+                  setShowGridSettings(false);
+                }}
+                onHideGrid={() => {
+                  if (gridVisible) toggleGrid();
+                  setShowGridSettings(false);
+                }}
+                onClose={() => setShowGridSettings(false)}
+              />
+            )}
+          </div>
+        ) : (
+          <ToolButton active={gridVisible} onClick={toggleGrid} title="Toggle Grid (G)">
+            <GridIcon />
+          </ToolButton>
+        )}
 
         {isDirector && (
           <div className="relative">
-            <ToolButton
-              onClick={() => setShowAddToken((prev) => !prev)}
-              title="Add Token (T)"
-            >
+            <ToolButton onClick={() => setShowAddToken((prev) => !prev)} title="Add Token (T)">
               <PlusIcon />
             </ToolButton>
-            {showAddToken && (
-              <AddTokenForm onClose={() => setShowAddToken(false)} />
-            )}
+            {showAddToken && <AddTokenForm onClose={() => setShowAddToken(false)} />}
           </div>
         )}
       </div>

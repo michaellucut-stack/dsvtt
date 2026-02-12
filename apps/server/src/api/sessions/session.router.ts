@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { authenticateToken } from '../../middleware/auth.js';
 import { validate } from '../../middleware/validation.js';
+import { getIO } from '../../config/socket-io.js';
 import * as sessionService from './session.service.js';
 
 /** Schema for the PATCH session status body. */
@@ -26,10 +27,19 @@ sessionRouter.post(
   '/rooms/:roomId/sessions',
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const session = await sessionService.startSession(
-        req.params['roomId'] as string,
-        req.user!.sub,
-      );
+      const roomId = req.params['roomId'] as string;
+      const session = await sessionService.startSession(roomId, req.user!.sub);
+
+      // Broadcast GAME_STARTED to all connected clients so that players
+      // on the room detail page (who are listening via subscribeToSocket
+      // but have not yet joined the Socket.IO room) get redirected.
+      const io = getIO();
+      io.emit('GAME_STARTED', {
+        sessionId: session.id,
+        roomId,
+        status: 'active',
+      });
+
       res.status(201).json({ ok: true, data: session });
     } catch (err) {
       next(err);

@@ -2,6 +2,7 @@
 
 import { memo, useEffect, useRef, useState } from 'react';
 import 'konva/lib/shapes/Image';
+import 'konva/lib/shapes/Rect';
 import { Image as KonvaImage, Rect } from 'react-konva';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -16,13 +17,17 @@ interface MapBackgroundProps {
   backgroundUrl: string | null;
   width: number;
   height: number;
+  /** Called once the background image loads with its natural pixel dimensions. */
+  onImageLoaded?: (naturalWidth: number, naturalHeight: number) => void;
 }
 
 /**
  * Loads and renders the map background image using Konva.Image.
- * Falls back to a dark rectangle if no image is provided or while loading.
+ * The image is rendered at its natural aspect ratio — never stretched.
+ * It is displayed at the provided width/height (which should already
+ * account for the image's native dimensions).
  */
-function MapBackgroundInner({ backgroundUrl, width, height }: MapBackgroundProps) {
+function MapBackgroundInner({ backgroundUrl, width, height, onImageLoaded }: MapBackgroundProps) {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [loading, setLoading] = useState(false);
   const mountedRef = useRef(true);
@@ -48,6 +53,7 @@ function MapBackgroundInner({ backgroundUrl, width, height }: MapBackgroundProps
       if (mountedRef.current) {
         setImage(img);
         setLoading(false);
+        onImageLoaded?.(img.naturalWidth, img.naturalHeight);
       }
     };
 
@@ -64,6 +70,7 @@ function MapBackgroundInner({ backgroundUrl, width, height }: MapBackgroundProps
       img.onload = null;
       img.onerror = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backgroundUrl]);
 
   // Fallback dark background
