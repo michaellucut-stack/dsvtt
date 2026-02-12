@@ -52,6 +52,8 @@ export enum SocketEvent {
   TURN_ORDER_UPDATED = 'TURN_ORDER_UPDATED',
 
   // Fog of war events
+  FOG_CREATE = 'FOG_CREATE',
+  FOG_CREATED = 'FOG_CREATED',
   FOG_UPDATE = 'FOG_UPDATE',
   FOG_UPDATED = 'FOG_UPDATED',
 

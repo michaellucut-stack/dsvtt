@@ -109,9 +109,8 @@ const fogPointSchema = z.object({
 
 /** Zod schema for creating a fog region. */
 export const createFogRegionSchema = z.object({
-  points: z
-    .array(fogPointSchema)
-    .min(3, 'A fog region requires at least 3 points'),
+  name: z.string().max(100).optional(),
+  points: z.array(fogPointSchema).min(3, 'A fog region requires at least 3 points'),
   revealed: z.boolean().optional().default(false),
 });
 

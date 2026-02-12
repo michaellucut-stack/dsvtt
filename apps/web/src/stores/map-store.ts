@@ -6,6 +6,7 @@ import type {
   TokenMovedPayload,
   TokenAddedPayload,
   TokenRemovedPayload,
+  FogCreatedPayload,
   FogUpdatedPayload,
   MapLoadedPayload,
   MapUpdatedPayload,
@@ -13,7 +14,7 @@ import type {
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-export type MapTool = 'select' | 'move' | 'fog' | 'measure';
+export type MapTool = 'select' | 'move' | 'fog' | 'fog-paint' | 'measure';
 
 /** Token context menu state. */
 export interface TokenContextMenu {
@@ -70,6 +71,10 @@ interface MapState {
   movingToken: MovingToken | null;
   /** Token being edited (shows detail panel). */
   editingTokenId: string | null;
+  /** Cells being painted for a new fog group (grid coordinates). */
+  paintedFogCells: { x: number; y: number }[];
+  /** Counter for auto-naming fog groups. */
+  fogGroupCounter: number;
   /** Loading flag. */
   loading: boolean;
   /** Error message. */
@@ -131,6 +136,15 @@ interface MapState {
   /** Set the token being edited (detail panel). */
   setEditingToken: (tokenId: string | null) => void;
 
+  /** Add a cell to the current fog painting session. */
+  addPaintedFogCell: (x: number, y: number) => void;
+  /** Remove a cell from the current fog painting session. */
+  removePaintedFogCell: (x: number, y: number) => void;
+  /** Clear all painted fog cells (cancel painting). */
+  clearPaintedFogCells: () => void;
+  /** Commit painted cells as a new fog region group on the server. */
+  commitFogGroup: (name?: string) => void;
+
   /** Fetch the first map for a session and load its state. */
   fetchSessionMap: (sessionId: string) => Promise<void>;
 
@@ -170,6 +184,8 @@ export const useMapStore = create<MapState>()((set, get) => ({
   contextMenu: null,
   movingToken: null,
   editingTokenId: null,
+  paintedFogCells: [],
+  fogGroupCounter: 1,
   loading: false,
   error: null,
 
@@ -350,6 +366,53 @@ export const useMapStore = create<MapState>()((set, get) => ({
     set({ editingTokenId: tokenId, contextMenu: null });
   },
 
+  addPaintedFogCell(x: number, y: number) {
+    set((state) => {
+      if (state.paintedFogCells.some((c) => c.x === x && c.y === y)) return state;
+      return { paintedFogCells: [...state.paintedFogCells, { x, y }] };
+    });
+  },
+
+  removePaintedFogCell(x: number, y: number) {
+    set((state) => ({
+      paintedFogCells: state.paintedFogCells.filter((c) => !(c.x === x && c.y === y)),
+    }));
+  },
+
+  clearPaintedFogCells() {
+    set({ paintedFogCells: [] });
+  },
+
+  commitFogGroup(name?: string) {
+    const { currentMap, paintedFogCells, fogGroupCounter } = get();
+    if (!currentMap || paintedFogCells.length === 0) return;
+
+    const socket = getSocket();
+    const groupName = name?.trim() || `Group ${fogGroupCounter}`;
+
+    for (const cell of paintedFogCells) {
+      const points = [
+        { x: cell.x, y: cell.y },
+        { x: cell.x + 1, y: cell.y },
+        { x: cell.x + 1, y: cell.y + 1 },
+        { x: cell.x, y: cell.y + 1 },
+      ];
+      socket.emit(
+        'FOG_CREATE',
+        { mapId: currentMap.id, name: groupName, points, revealed: false },
+        () => {
+          // Acknowledgement handled by FOG_CREATED listener
+        },
+      );
+    }
+
+    set({
+      fogGroupCounter: fogGroupCounter + 1,
+      paintedFogCells: [],
+      tool: 'select',
+    });
+  },
+
   clearMap() {
     set({
       currentMap: null,
@@ -401,6 +464,21 @@ export const useMapStore = create<MapState>()((set, get) => ({
       }));
     };
 
+    const handleFogCreated = (payload: FogCreatedPayload) => {
+      set((state) => {
+        if (!state.currentMap || state.currentMap.id !== payload.mapId) return state;
+        const newRegion: FogRegion = {
+          id: payload.region.id,
+          mapId: payload.region.mapId,
+          name: payload.region.name,
+          points: payload.region.points,
+          revealed: payload.region.revealed,
+        };
+        if (state.fogRegions.some((r) => r.id === newRegion.id)) return state;
+        return { fogRegions: [...state.fogRegions, newRegion] };
+      });
+    };
+
     const handleFogUpdated = (payload: FogUpdatedPayload) => {
       set((state) => ({
         fogRegions: state.fogRegions.map((r) =>
@@ -441,6 +519,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
     socket.on('TOKEN_MOVED', handleTokenMoved);
     socket.on('TOKEN_ADDED', handleTokenAdded);
     socket.on('TOKEN_REMOVED', handleTokenRemoved);
+    socket.on('FOG_CREATED', handleFogCreated);
     socket.on('FOG_UPDATED', handleFogUpdated);
     socket.on('MAP_LOADED', handleMapLoaded);
     socket.on('MAP_UPDATED', handleMapUpdated);
@@ -449,6 +528,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
       socket.off('TOKEN_MOVED', handleTokenMoved);
       socket.off('TOKEN_ADDED', handleTokenAdded);
       socket.off('TOKEN_REMOVED', handleTokenRemoved);
+      socket.off('FOG_CREATED', handleFogCreated);
       socket.off('FOG_UPDATED', handleFogUpdated);
       socket.off('MAP_LOADED', handleMapLoaded);
       socket.off('MAP_UPDATED', handleMapUpdated);

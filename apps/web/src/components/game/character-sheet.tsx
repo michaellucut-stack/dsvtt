@@ -9,6 +9,7 @@ import {
 } from '@/stores/character-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { Button } from '@/components/ui/button';
+import { DrawSteelWizard, type DrawSteelCharacterData } from '@/components/game/draw-steel-wizard';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -26,6 +27,7 @@ function CreateCharacterForm({ sessionId }: { sessionId: string }) {
   const createCharacter = useCharacterStore((s) => s.createCharacter);
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +47,54 @@ function CreateCharacterForm({ sessionId }: { sessionId: string }) {
       setSubmitting(false);
     }
   };
+
+  const handleWizardComplete = async (wizardData: DrawSteelCharacterData) => {
+    setSubmitting(true);
+    try {
+      await createCharacter({
+        sessionId,
+        name: name.trim(),
+        stats: [
+          { key: 'Ancestry', value: wizardData.ancestry },
+          { key: 'Class', value: wizardData.class },
+          { key: 'Subclass', value: wizardData.subclass },
+          { key: 'Kit', value: wizardData.kit },
+          { key: 'Culture - Environment', value: wizardData.cultureEnvironment },
+          { key: 'Culture - Organization', value: wizardData.cultureOrganization },
+          { key: 'Culture - Upbringing', value: wizardData.cultureUpbringing },
+          { key: 'Language', value: wizardData.language },
+          { key: 'Career', value: wizardData.career },
+          { key: 'Complication', value: wizardData.complication || '' },
+          { key: 'Heroic Resource', value: wizardData.heroicResource },
+          { key: 'Might', value: String(wizardData.might) },
+          { key: 'Agility', value: String(wizardData.agility) },
+          { key: 'Reason', value: String(wizardData.reason) },
+          { key: 'Intuition', value: String(wizardData.intuition) },
+          { key: 'Presence', value: String(wizardData.presence) },
+          { key: 'Stamina', value: String(wizardData.stamina) },
+          { key: 'Recoveries', value: String(wizardData.recoveries) },
+          { key: 'Speed', value: String(wizardData.speed) },
+        ],
+        notes: `Ancestry Traits: ${wizardData.ancestryTraits?.join(', ') || 'None selected'}`,
+        inventory: [],
+      });
+    } catch {
+      // error set in store
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (showWizard) {
+    return (
+      <DrawSteelWizard
+        name={name}
+        sessionId={sessionId}
+        onComplete={handleWizardComplete}
+        onCancel={() => setShowWizard(false)}
+      />
+    );
+  }
 
   return (
     <div className="flex h-full flex-col items-center justify-center p-6">
@@ -67,9 +117,7 @@ function CreateCharacterForm({ sessionId }: { sessionId: string }) {
           <h2 className="font-heading text-lg font-semibold text-parchment-100">
             Create Your Character
           </h2>
-          <p className="mt-1 text-xs text-parchment-400">
-            Name your adventurer to begin
-          </p>
+          <p className="mt-1 text-xs text-parchment-400">Name your adventurer to begin</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-3">
           <input
@@ -80,12 +128,17 @@ function CreateCharacterForm({ sessionId }: { sessionId: string }) {
             autoFocus
             className="w-full rounded-card border border-charcoal-600 bg-charcoal-800/80 px-3.5 py-2.5 text-sm text-parchment-100 placeholder:text-charcoal-400 focus:border-gold-600 focus:outline-none focus:ring-2 focus:ring-gold-500/40"
           />
+          <Button type="submit" fullWidth disabled={submitting || !name.trim()}>
+            {submitting ? 'Creating...' : 'Create Character'}
+          </Button>
           <Button
-            type="submit"
+            type="button"
+            variant="secondary"
             fullWidth
             disabled={submitting || !name.trim()}
+            onClick={() => setShowWizard(true)}
           >
-            {submitting ? 'Creating...' : 'Create Character'}
+            {submitting ? 'Creating...' : 'Create Draw Steel Character'}
           </Button>
         </form>
       </div>
@@ -125,7 +178,14 @@ function StatRow({
         onClick={onDelete}
         className="shrink-0 text-charcoal-500 opacity-0 transition-opacity group-hover:opacity-100 hover:text-crimson-400"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
           <line x1="18" y1="6" x2="6" y2="18" />
           <line x1="6" y1="6" x2="18" y2="18" />
         </svg>
@@ -168,7 +228,14 @@ function ItemRow({
         onClick={onDelete}
         className="mt-1 shrink-0 text-charcoal-500 opacity-0 transition-opacity group-hover:opacity-100 hover:text-crimson-400"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
           <line x1="18" y1="6" x2="6" y2="18" />
           <line x1="6" y1="6" x2="18" y2="18" />
         </svg>
@@ -185,9 +252,7 @@ function CharacterEditor({ character }: { character: Character }) {
   const [name, setName] = useState(character.name);
   const [stats, setStats] = useState<CharacterStat[]>(character.stats);
   const [notes, setNotes] = useState(character.notes);
-  const [inventory, setInventory] = useState<InventoryItem[]>(
-    character.inventory,
-  );
+  const [inventory, setInventory] = useState<InventoryItem[]>(character.inventory);
 
   // Track if we need to sync from incoming socket updates
   const lastCharacterRef = useRef(character);
@@ -259,11 +324,7 @@ function CharacterEditor({ character }: { character: Character }) {
     scheduleSave({ name, stats, notes: val, inventory });
   };
 
-  const handleItemChange = (
-    index: number,
-    itemName: string,
-    description: string,
-  ) => {
+  const handleItemChange = (index: number, itemName: string, description: string) => {
     const next = inventory.map((item, i) =>
       i === index ? { ...item, name: itemName, description } : item,
     );
@@ -272,10 +333,7 @@ function CharacterEditor({ character }: { character: Character }) {
   };
 
   const handleAddItem = () => {
-    const next = [
-      ...inventory,
-      { id: generateId(), name: '', description: '' },
-    ];
+    const next = [...inventory, { id: generateId(), name: '', description: '' }];
     setInventory(next);
   };
 
@@ -312,7 +370,14 @@ function CharacterEditor({ character }: { character: Character }) {
               onClick={handleAddStat}
               className="flex items-center gap-1 text-[10px] font-semibold text-gold-500 hover:text-gold-400"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
@@ -362,7 +427,14 @@ function CharacterEditor({ character }: { character: Character }) {
               onClick={handleAddItem}
               className="flex items-center gap-1 text-[10px] font-semibold text-gold-500 hover:text-gold-400"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
@@ -379,9 +451,7 @@ function CharacterEditor({ character }: { character: Character }) {
                 <ItemRow
                   key={item.id}
                   item={item}
-                  onChange={(itemName, desc) =>
-                    handleItemChange(i, itemName, desc)
-                  }
+                  onChange={(itemName, desc) => handleItemChange(i, itemName, desc)}
                   onDelete={() => handleDeleteItem(i)}
                 />
               ))}

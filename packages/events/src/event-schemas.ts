@@ -111,10 +111,7 @@ export const chatMessageSchema = z.object({
   content: z
     .string()
     .min(1, 'Message cannot be empty')
-    .max(
-      MAX_CHAT_MESSAGE_LENGTH,
-      `Message must be at most ${MAX_CHAT_MESSAGE_LENGTH} characters`,
-    ),
+    .max(MAX_CHAT_MESSAGE_LENGTH, `Message must be at most ${MAX_CHAT_MESSAGE_LENGTH} characters`),
 });
 
 /** Schema for sending a whisper. */
@@ -124,10 +121,7 @@ export const chatWhisperSchema = z.object({
   content: z
     .string()
     .min(1, 'Message cannot be empty')
-    .max(
-      MAX_CHAT_MESSAGE_LENGTH,
-      `Message must be at most ${MAX_CHAT_MESSAGE_LENGTH} characters`,
-    ),
+    .max(MAX_CHAT_MESSAGE_LENGTH, `Message must be at most ${MAX_CHAT_MESSAGE_LENGTH} characters`),
 });
 
 // ---------------------------------------------------------------------------
@@ -148,6 +142,16 @@ export const turnSkipSchema = z.object({
 // ---------------------------------------------------------------------------
 // Fog of war schemas
 // ---------------------------------------------------------------------------
+
+/** Schema for creating a new fog region. */
+export const fogCreateSchema = z.object({
+  mapId: z.string().uuid('Invalid map ID'),
+  name: z.string().max(100).optional(),
+  points: z
+    .array(z.object({ x: z.number(), y: z.number() }))
+    .min(3, 'A fog region requires at least 3 points'),
+  revealed: z.boolean().optional().default(false),
+});
 
 /** Schema for updating fog of war. */
 export const fogUpdateSchema = z.object({

@@ -3,6 +3,7 @@ import type {
   ChatWhisperReceivedPayload,
   CharacterUpdatedPayload,
   DiceResultPayload,
+  FogCreatedPayload,
   FogUpdatedPayload,
   GamePausedPayload,
   GameStartedPayload,
@@ -61,6 +62,7 @@ export interface ServerToClientEvents {
   TURN_ORDER_UPDATED: (payload: TurnOrderUpdatedPayload) => void;
 
   // Fog of war events
+  FOG_CREATED: (payload: FogCreatedPayload) => void;
   FOG_UPDATED: (payload: FogUpdatedPayload) => void;
 
   // NPC events

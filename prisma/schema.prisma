@@ -198,6 +198,7 @@ model Token {
 model FogRegion {
   id       String  @id @default(uuid()) @db.Uuid
   mapId    String  @db.Uuid
+  name     String?
   points   Json
   revealed Boolean @default(false)
 

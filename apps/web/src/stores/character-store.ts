@@ -28,6 +28,26 @@ export interface Character {
   updatedAt: string;
 }
 
+// ─── Conversion helpers (frontend array <-> backend record) ─────────────────
+
+/** Convert a `CharacterStat[]` to a plain `Record<string, string>` for the API. */
+function statsToRecord(stats: CharacterStat[]): Record<string, string> {
+  const record: Record<string, string> = {};
+  for (const { key, value } of stats) {
+    if (key) record[key] = value;
+  }
+  return record;
+}
+
+/** Convert a `Record<string, unknown>` from the API to a `CharacterStat[]`. */
+function recordToStats(record: unknown): CharacterStat[] {
+  if (!record || typeof record !== 'object' || Array.isArray(record)) return [];
+  return Object.entries(record as Record<string, unknown>).map(([key, value]) => ({
+    key,
+    value: String(value ?? ''),
+  }));
+}
+
 interface CreateCharacterInput {
   sessionId: string;
   name: string;
@@ -93,7 +113,13 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
       const res = await apiClient.get<{ ok: boolean; data: Character[] }>(
         `/api/sessions/${sessionId}/characters`,
       );
-      set({ characters: res.data, loading: false });
+      // Convert server records to frontend array representation
+      const characters = res.data.map((raw) => ({
+        ...raw,
+        stats: recordToStats(raw.stats),
+        notes: raw.notes ?? '',
+      }));
+      set({ characters, loading: false });
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : 'Failed to fetch characters',
@@ -107,9 +133,20 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
     try {
       const res = await apiClient.post<{ ok: boolean; data: Character }>(
         `/api/sessions/${input.sessionId}/characters`,
-        input,
+        {
+          name: input.name,
+          stats: statsToRecord(input.stats ?? []),
+          notes: input.notes ?? '',
+          inventory: input.inventory ?? [],
+        },
       );
-      const character = res.data;
+      // Convert server record back to frontend array representation
+      const raw = res.data;
+      const character: Character = {
+        ...raw,
+        stats: recordToStats(raw.stats),
+        notes: raw.notes ?? '',
+      };
       set((state) => ({
         characters: [...state.characters, character],
         myCharacter: character,
@@ -138,11 +175,23 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
     });
 
     try {
+      // Convert stats array to record for the API
+      const apiBody: Record<string, unknown> = { ...changes };
+      if (changes.stats) {
+        apiBody.stats = statsToRecord(changes.stats);
+      }
+
       const res = await apiClient.patch<{ ok: boolean; data: Character }>(
         `/api/characters/${characterId}`,
-        changes,
+        apiBody,
       );
-      const updated = res.data;
+      // Convert server record back to frontend array representation
+      const raw = res.data;
+      const updated: Character = {
+        ...raw,
+        stats: recordToStats(raw.stats),
+        notes: raw.notes ?? '',
+      };
 
       // Broadcast update via Socket.IO
       const { myCharacter } = get();
@@ -151,7 +200,7 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
         socket.emit('CHARACTER_UPDATE', {
           sessionId: myCharacter.sessionId,
           characterId,
-          changes: changes as Record<string, unknown>,
+          changes: apiBody,
         });
       }
 
@@ -201,11 +250,19 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
     const handleCharacterUpdated = (payload: CharacterUpdatedPayload) => {
       const { characterId, changes } = payload;
 
+      // Convert stats record to array if present in the update
+      const converted: Partial<Character> = { ...(changes as Partial<Character>) };
+      if (changes.stats && !Array.isArray(changes.stats)) {
+        converted.stats = recordToStats(changes.stats);
+      }
+
       set((state) => ({
-        characters: state.characters.map((c) => (c.id === characterId ? { ...c, ...changes } : c)),
+        characters: state.characters.map((c) =>
+          c.id === characterId ? { ...c, ...converted } : c,
+        ),
         myCharacter:
           state.myCharacter?.id === characterId
-            ? { ...state.myCharacter, ...(changes as Partial<Character>) }
+            ? { ...state.myCharacter, ...converted }
             : state.myCharacter,
       }));
     };

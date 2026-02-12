@@ -43,6 +43,7 @@ export interface TokenItem {
 export interface FogRegionItem {
   id: string;
   mapId: string;
+  name?: string;
   points: { x: number; y: number }[];
   revealed: boolean;
 }
@@ -68,10 +69,7 @@ export interface MapState extends MapDetail {}
  * @param userId - The authenticated user's ID.
  * @throws {AppError} 404 if session not found, 403 if not director.
  */
-export async function requireSessionDirector(
-  sessionId: string,
-  userId: string,
-): Promise<void> {
+export async function requireSessionDirector(sessionId: string, userId: string): Promise<void> {
   const session = await prisma.gameSession.findUnique({
     where: { id: sessionId },
     include: { room: true },
@@ -113,10 +111,7 @@ async function findMapOrThrow(mapId: string) {
  * @returns The map record.
  * @throws {AppError} 404 if map/session not found, 403 if not director.
  */
-export async function requireMapDirector(
-  mapId: string,
-  userId: string,
-) {
+export async function requireMapDirector(mapId: string, userId: string) {
   const map = await prisma.gameMap.findUnique({
     where: { id: mapId },
     include: { session: { include: { room: true } } },
@@ -190,12 +185,14 @@ function serializeToken(token: {
 function serializeFogRegion(region: {
   id: string;
   mapId: string;
+  name?: string | null;
   points: Prisma.JsonValue;
   revealed: boolean;
 }): FogRegionItem {
   return {
     id: region.id,
     mapId: region.mapId,
+    ...(region.name != null && { name: region.name }),
     points: region.points as { x: number; y: number }[],
     revealed: region.revealed,
   };
@@ -212,10 +209,7 @@ function serializeFogRegion(region: {
  * @param data - Validated creation payload.
  * @returns The newly created map.
  */
-export async function createMap(
-  sessionId: string,
-  data: CreateMapBody,
-): Promise<MapListItem> {
+export async function createMap(sessionId: string, data: CreateMapBody): Promise<MapListItem> {
   // Verify session exists
   const session = await prisma.gameSession.findUnique({
     where: { id: sessionId },
@@ -296,10 +290,7 @@ export async function getMapDetail(mapId: string): Promise<MapDetail> {
  * @returns The updated map.
  * @throws {AppError} 404 if the map does not exist.
  */
-export async function updateMap(
-  mapId: string,
-  data: UpdateMapBody,
-): Promise<MapListItem> {
+export async function updateMap(mapId: string, data: UpdateMapBody): Promise<MapListItem> {
   await findMapOrThrow(mapId);
 
   const map = await prisma.gameMap.update({
@@ -334,10 +325,7 @@ export async function deleteMap(mapId: string): Promise<void> {
  * @returns The updated map.
  * @throws {AppError} 404 if the map does not exist.
  */
-export async function uploadMapBackground(
-  mapId: string,
-  fileUrl: string,
-): Promise<MapListItem> {
+export async function uploadMapBackground(mapId: string, fileUrl: string): Promise<MapListItem> {
   await findMapOrThrow(mapId);
 
   const map = await prisma.gameMap.update({
@@ -360,10 +348,7 @@ export async function uploadMapBackground(
  * @returns The newly created token.
  * @throws {AppError} 404 if the map does not exist.
  */
-export async function addToken(
-  mapId: string,
-  data: AddTokenBody,
-): Promise<TokenItem> {
+export async function addToken(mapId: string, data: AddTokenBody): Promise<TokenItem> {
   await findMapOrThrow(mapId);
 
   const token = await prisma.token.create({
@@ -393,11 +378,7 @@ export async function addToken(
  * @returns The updated token.
  * @throws {AppError} 404 if the token does not exist.
  */
-export async function moveToken(
-  tokenId: string,
-  x: number,
-  y: number,
-): Promise<TokenItem> {
+export async function moveToken(tokenId: string, x: number, y: number): Promise<TokenItem> {
   const existing = await prisma.token.findUnique({ where: { id: tokenId } });
   if (!existing) {
     throw new AppError('Token not found', 404, 'TOKEN_NOT_FOUND');
@@ -434,10 +415,7 @@ export async function removeToken(tokenId: string): Promise<void> {
  * @returns The updated token.
  * @throws {AppError} 404 if the token does not exist.
  */
-export async function updateTokenVisibility(
-  tokenId: string,
-  visible: boolean,
-): Promise<TokenItem> {
+export async function updateTokenVisibility(tokenId: string, visible: boolean): Promise<TokenItem> {
   const existing = await prisma.token.findUnique({ where: { id: tokenId } });
   if (!existing) {
     throw new AppError('Token not found', 404, 'TOKEN_NOT_FOUND');
@@ -519,6 +497,7 @@ export async function createFogRegion(
   const region = await prisma.fogRegion.create({
     data: {
       mapId,
+      ...(data.name !== undefined && { name: data.name }),
       points: data.points as unknown as Prisma.InputJsonValue,
       revealed: data.revealed,
     },

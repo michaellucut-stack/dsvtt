@@ -8,6 +8,7 @@ import {
   tokenMoveSchema,
   tokenAddSchema,
   tokenRemoveSchema,
+  fogCreateSchema,
   fogUpdateSchema,
 } from '@dsvtt/events';
 import { prisma } from '../config/prisma.js';
@@ -191,7 +192,9 @@ export function registerMapEvents(io: TypedServer, socket: TypedSocket): void {
           payload: { mapId, changes: changes as Record<string, unknown> },
           actorId: user.sub,
           actorType: 'DIRECTOR',
-        }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
+        }).catch((err) =>
+          logger.error('Event logging failed', { context: 'event-store', error: String(err) }),
+        );
       }
     } catch (err) {
       logger.error('MAP_UPDATE handler error', {
@@ -244,7 +247,9 @@ export function registerMapEvents(io: TypedServer, socket: TypedSocket): void {
           payload: { tokenId, mapId, x, y },
           actorId: user.sub,
           actorType: role as 'DIRECTOR' | 'PLAYER',
-        }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
+        }).catch((err) =>
+          logger.error('Event logging failed', { context: 'event-store', error: String(err) }),
+        );
       }
     } catch (err) {
       logger.error('TOKEN_MOVE handler error', {
@@ -263,8 +268,7 @@ export function registerMapEvents(io: TypedServer, socket: TypedSocket): void {
         return;
       }
 
-      const { mapId, name, imageUrl, x, y, width, height, layer, visible } =
-        parsed.data;
+      const { mapId, name, imageUrl, x, y, width, height, layer, visible } = parsed.data;
 
       // Verify director status
       const isDir = await isDirectorForMap(mapId, user.sub);
@@ -321,10 +325,23 @@ export function registerMapEvents(io: TypedServer, socket: TypedSocket): void {
         logEvent({
           sessionId,
           eventType: GameEventType.TOKEN_ADDED,
-          payload: { tokenId: token.id, mapId, name, x, y, width, height, layer, visible, ownerId: user.sub },
+          payload: {
+            tokenId: token.id,
+            mapId,
+            name,
+            x,
+            y,
+            width,
+            height,
+            layer,
+            visible,
+            ownerId: user.sub,
+          },
           actorId: user.sub,
           actorType: 'DIRECTOR',
-        }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
+        }).catch((err) =>
+          logger.error('Event logging failed', { context: 'event-store', error: String(err) }),
+        );
       }
 
       callback({ ok: true, tokenId: token.id });
@@ -371,13 +388,79 @@ export function registerMapEvents(io: TypedServer, socket: TypedSocket): void {
           payload: { tokenId, mapId },
           actorId: user.sub,
           actorType: 'DIRECTOR',
-        }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
+        }).catch((err) =>
+          logger.error('Event logging failed', { context: 'event-store', error: String(err) }),
+        );
       }
     } catch (err) {
       logger.error('TOKEN_REMOVE handler error', {
         context: 'socket',
         error: String(err),
       });
+    }
+  });
+
+  // ── FOG_CREATE ───────────────────────────────────────────────────────
+  socket.on('FOG_CREATE', async (payload, callback) => {
+    try {
+      const parsed = fogCreateSchema.safeParse(payload);
+      if (!parsed.success) {
+        callback({ ok: false, error: 'Invalid payload' });
+        return;
+      }
+
+      const { mapId, name, points, revealed } = parsed.data;
+
+      // Verify director status
+      const isDir = await isDirectorForMap(mapId, user.sub);
+      if (!isDir) {
+        callback({ ok: false, error: 'Only the director can create fog regions' });
+        return;
+      }
+
+      // Resolve room and verify socket is in the room
+      const roomId = await getRoomIdForMap(mapId);
+      if (!roomId || !isInRoom(socket, roomId)) {
+        callback({ ok: false, error: 'Not in room' });
+        return;
+      }
+
+      const region = await mapService.createFogRegion(mapId, { points, revealed, name });
+
+      // Broadcast to room
+      io.to(roomId).emit('FOG_CREATED', {
+        mapId,
+        region: {
+          id: region.id,
+          mapId: region.mapId,
+          name: region.name,
+          points: region.points,
+          revealed: region.revealed,
+        },
+        createdBy: user.sub,
+      });
+
+      // Log event
+      const sessionId = await getSessionIdForMap(mapId);
+      if (sessionId) {
+        logEvent({
+          sessionId,
+          eventType: GameEventType.FOG_CREATED,
+          payload: { mapId, regionId: region.id, name, points, revealed },
+          actorId: user.sub,
+          actorType: 'DIRECTOR',
+        }).catch((err) =>
+          logger.error('Event logging failed', { context: 'event-store', error: String(err) }),
+        );
+      }
+
+      callback({ ok: true, regionId: region.id });
+    } catch (err) {
+      logger.error('FOG_CREATE handler error', {
+        context: 'socket',
+        error: String(err),
+      });
+      callback({ ok: false, error: 'Internal server error' });
     }
   });
 
@@ -417,7 +500,9 @@ export function registerMapEvents(io: TypedServer, socket: TypedSocket): void {
           payload: { mapId, regionId, revealed },
           actorId: user.sub,
           actorType: 'DIRECTOR',
-        }).catch((err) => logger.error('Event logging failed', { context: 'event-store', error: String(err) }));
+        }).catch((err) =>
+          logger.error('Event logging failed', { context: 'event-store', error: String(err) }),
+        );
       }
     } catch (err) {
       logger.error('FOG_UPDATE handler error', {

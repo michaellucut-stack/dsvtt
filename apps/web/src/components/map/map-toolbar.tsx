@@ -89,6 +89,26 @@ function RulerIcon({ className }: { className?: string }) {
   );
 }
 
+function PaintBrushIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18.37 2.63 14 7l-1.59-1.59a2 2 0 0 0-2.82 0L8 7l9 9 1.59-1.59a2 2 0 0 0 0-2.82L17 10l4.37-4.37a2.12 2.12 0 1 0-3-3Z" />
+      <path d="M9 8c-2 3-4 3.5-7 4l8 10c2-1 6-5 6-7" />
+      <path d="M14.5 17.5 4.5 15" />
+    </svg>
+  );
+}
+
 function PlusIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -193,26 +213,49 @@ function FitIcon({ className }: { className?: string }) {
   );
 }
 
+function RefreshIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 12a9 9 0 1 1-3-6.7" />
+      <path d="M21 3v6h-6" />
+    </svg>
+  );
+}
+
 // ─── Tool Button ────────────────────────────────────────────────────────────
 
 interface ToolButtonProps {
   active?: boolean;
+  disabled?: boolean;
   onClick: () => void;
   title: string;
   children: React.ReactNode;
 }
 
-function ToolButton({ active, onClick, title, children }: ToolButtonProps) {
+function ToolButton({ active, disabled, onClick, title, children }: ToolButtonProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       title={title}
+      disabled={disabled}
       className={[
         'flex h-9 w-9 items-center justify-center rounded-card transition-all duration-150',
-        active
-          ? 'bg-gold-600 text-charcoal-950 shadow-glow'
-          : 'bg-charcoal-800/80 text-parchment-300 hover:bg-charcoal-700 hover:text-parchment-100',
+        disabled
+          ? 'bg-charcoal-800/40 text-charcoal-500 cursor-not-allowed'
+          : active
+            ? 'bg-gold-600 text-charcoal-950 shadow-glow'
+            : 'bg-charcoal-800/80 text-parchment-300 hover:bg-charcoal-700 hover:text-parchment-100',
       ].join(' ')}
     >
       {children}
@@ -285,6 +328,64 @@ function AddTokenForm({ onClose }: AddTokenFormProps) {
         </button>
       </div>
     </form>
+  );
+}
+
+// ─── Fog Paint Form ─────────────────────────────────────────────────────────
+
+interface FogPaintFormProps {
+  onClose: () => void;
+}
+
+function FogPaintForm({ onClose }: FogPaintFormProps) {
+  const [groupName, setGroupName] = useState('');
+  const paintedFogCells = useMapStore((s) => s.paintedFogCells);
+  const commitFogGroup = useMapStore((s) => s.commitFogGroup);
+  const clearPaintedFogCells = useMapStore((s) => s.clearPaintedFogCells);
+  const setTool = useMapStore((s) => s.setTool);
+
+  const handleCommit = useCallback(() => {
+    commitFogGroup(groupName || undefined);
+    setGroupName('');
+  }, [groupName, commitFogGroup]);
+
+  const handleCancel = useCallback(() => {
+    clearPaintedFogCells();
+    setTool('select');
+    onClose();
+  }, [clearPaintedFogCells, setTool, onClose]);
+
+  return (
+    <div className="absolute left-0 top-full mt-2 z-50 w-56 rounded-panel border border-charcoal-700/60 bg-charcoal-900/95 p-3 shadow-panel backdrop-blur-sm">
+      <p className="mb-2 text-xs font-semibold text-parchment-200">Paint Fog</p>
+      <p className="mb-2 text-[10px] text-parchment-400">
+        {paintedFogCells.length} cell{paintedFogCells.length !== 1 ? 's' : ''} selected
+      </p>
+      <input
+        type="text"
+        value={groupName}
+        onChange={(e) => setGroupName(e.target.value)}
+        placeholder="Group name (optional)"
+        className="mb-2 block w-full rounded-card border border-charcoal-600 bg-charcoal-800/80 px-2.5 py-1.5 text-sm text-parchment-100 placeholder:text-charcoal-400 focus:border-gold-600 focus:outline-none focus:ring-1 focus:ring-gold-500/40"
+      />
+      <div className="flex gap-1.5">
+        <button
+          type="button"
+          onClick={handleCommit}
+          disabled={paintedFogCells.length === 0}
+          className="flex-1 rounded-card bg-gold-600 px-2.5 py-1 text-xs font-semibold text-charcoal-950 transition-colors hover:bg-gold-500 disabled:opacity-50"
+        >
+          Commit Group
+        </button>
+        <button
+          type="button"
+          onClick={handleCancel}
+          className="flex-1 rounded-card bg-charcoal-700 px-2.5 py-1 text-xs font-semibold text-parchment-300 transition-colors hover:bg-charcoal-600"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -393,8 +494,11 @@ export function MapToolbar({ isDirector }: MapToolbarProps) {
   const toggleGrid = useMapStore((s) => s.toggleGrid);
   const updateGridDimensions = useMapStore((s) => s.updateGridDimensions);
 
+  const fetchMapState = useMapStore((s) => s.fetchMapState);
+
   const [showAddToken, setShowAddToken] = useState(false);
   const [showGridSettings, setShowGridSettings] = useState(false);
+  const [showFogPaint, setShowFogPaint] = useState(false);
 
   const handleSetTool = useCallback((t: MapTool) => () => setTool(t), [setTool]);
 
@@ -411,6 +515,12 @@ export function MapToolbar({ isDirector }: MapToolbarProps) {
   const handleFitToScreen = useCallback(() => {
     setViewport({ x: 0, y: 0, scale: 1 });
   }, [setViewport]);
+
+  const handleRefreshMap = useCallback(() => {
+    if (currentMap) {
+      fetchMapState(currentMap.id);
+    }
+  }, [currentMap, fetchMapState]);
 
   const zoomPercent = Math.round(viewport.scale * 100);
 
@@ -430,6 +540,28 @@ export function MapToolbar({ isDirector }: MapToolbarProps) {
           <ToolButton active={tool === 'fog'} onClick={handleSetTool('fog')} title="Fog of War (F)">
             <CloudIcon />
           </ToolButton>
+        )}
+
+        {isDirector && (
+          <div className="relative">
+            <ToolButton
+              active={tool === 'fog-paint'}
+              onClick={() => {
+                if (tool === 'fog-paint') {
+                  setShowFogPaint((prev) => !prev);
+                } else {
+                  setTool('fog-paint');
+                  setShowFogPaint(true);
+                }
+              }}
+              title="Paint Fog (P)"
+            >
+              <PaintBrushIcon />
+            </ToolButton>
+            {showFogPaint && tool === 'fog-paint' && (
+              <FogPaintForm onClose={() => setShowFogPaint(false)} />
+            )}
+          </div>
         )}
 
         {isDirector ? (
@@ -493,6 +625,12 @@ export function MapToolbar({ isDirector }: MapToolbarProps) {
 
         <ToolButton onClick={handleFitToScreen} title="Fit to Screen">
           <FitIcon />
+        </ToolButton>
+
+        <div className="mx-0.5 h-6 w-px bg-charcoal-600" />
+
+        <ToolButton onClick={handleRefreshMap} disabled={!currentMap} title="Refresh Map">
+          <RefreshIcon />
         </ToolButton>
       </div>
     </div>

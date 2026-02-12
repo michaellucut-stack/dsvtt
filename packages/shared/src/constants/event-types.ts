@@ -26,6 +26,7 @@ export const GameEventType = {
   MAP_UPDATED: 'MAP_UPDATED',
 
   // Fog of war
+  FOG_CREATED: 'FOG_CREATED',
   FOG_UPDATED: 'FOG_UPDATED',
 
   // Turns

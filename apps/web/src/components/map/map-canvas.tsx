@@ -7,7 +7,8 @@ import {
   useState,
   type WheelEvent as ReactWheelEvent,
 } from 'react';
-import { Stage, Layer } from 'react-konva';
+import { Stage, Layer, Rect } from 'react-konva';
+import 'konva/lib/shapes/Rect';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { useMapStore } from '@/stores/map-store';
@@ -51,6 +52,9 @@ export function MapCanvas() {
   const moveToken = useMapStore((s) => s.moveToken);
   const cancelMovingToken = useMapStore((s) => s.cancelMovingToken);
   const closeContextMenu = useMapStore((s) => s.closeContextMenu);
+  const paintedFogCells = useMapStore((s) => s.paintedFogCells);
+  const addPaintedFogCell = useMapStore((s) => s.addPaintedFogCell);
+  const removePaintedFogCell = useMapStore((s) => s.removePaintedFogCell);
 
   // Auth/room state for role determination
   const userId = useAuthStore((s) => s.user?.id);
@@ -150,6 +154,27 @@ export function MapCanvas() {
       // Only process clicks on the stage background (not on tokens)
       if (e.target !== stageRef.current) return;
 
+      // Fog painting mode: toggle cells
+      if (tool === 'fog-paint') {
+        const stage = stageRef.current;
+        if (!stage) return;
+        const pointer = stage.getPointerPosition();
+        if (!pointer) return;
+
+        const transform = stage.getAbsoluteTransform().copy().invert();
+        const pos = transform.point(pointer);
+        const gs = effectiveGridSizeRef.current;
+        const gridX = Math.floor(pos.x / gs);
+        const gridY = Math.floor(pos.y / gs);
+
+        if (paintedFogCells.some((c) => c.x === gridX && c.y === gridY)) {
+          removePaintedFogCell(gridX, gridY);
+        } else {
+          addPaintedFogCell(gridX, gridY);
+        }
+        return;
+      }
+
       // If we're in click-to-move mode, move the token to the clicked cell
       if (movingToken) {
         const stage = stageRef.current;
@@ -172,13 +197,25 @@ export function MapCanvas() {
       // Default: deselect
       setSelectedToken(null);
     },
-    [setSelectedToken, closeContextMenu, movingToken, moveToken, cancelMovingToken, viewport],
+    [
+      setSelectedToken,
+      closeContextMenu,
+      movingToken,
+      moveToken,
+      cancelMovingToken,
+      viewport,
+      tool,
+      paintedFogCells,
+      addPaintedFogCell,
+      removePaintedFogCell,
+    ],
   );
 
   // ── Stage draggable based on tool ─────────────────────────────────────
 
-  // Disable drag when in click-to-move mode so the click lands on the stage
-  const isDraggable = !movingToken && (tool === 'move' || tool === 'select');
+  // Disable drag when in click-to-move mode or fog-paint mode so clicks land on the stage
+  const isDraggable =
+    !movingToken && tool !== 'fog-paint' && (tool === 'move' || tool === 'select');
 
   if (!currentMap) {
     return (
@@ -251,7 +288,15 @@ export function MapCanvas() {
           onDragEnd={handleDragEnd}
           onClick={handleStageClick}
           onTap={handleStageClick}
-          style={{ cursor: movingToken ? 'crosshair' : tool === 'move' ? 'grab' : 'default' }}
+          style={{
+            cursor: movingToken
+              ? 'crosshair'
+              : tool === 'fog-paint'
+                ? 'crosshair'
+                : tool === 'move'
+                  ? 'grab'
+                  : 'default',
+          }}
         >
           {/* Layer 1: Background */}
           <Layer listening={false}>
@@ -282,6 +327,24 @@ export function MapCanvas() {
               isDirector={isDirector}
             />
           </Layer>
+
+          {/* Layer 3.5: Painted fog cells preview (Director only) */}
+          {tool === 'fog-paint' && paintedFogCells.length > 0 && (
+            <Layer listening={false}>
+              {paintedFogCells.map((cell, i) => (
+                <Rect
+                  key={`fog-paint-${i}`}
+                  x={cell.x * effectiveGridSize}
+                  y={cell.y * effectiveGridSize}
+                  width={effectiveGridSize}
+                  height={effectiveGridSize}
+                  fill="rgba(59, 130, 246, 0.35)"
+                  stroke="rgba(59, 130, 246, 0.7)"
+                  strokeWidth={1}
+                />
+              ))}
+            </Layer>
+          )}
 
           {/* Layer 4: Fog of War */}
           <Layer>

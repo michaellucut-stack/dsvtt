@@ -237,6 +237,27 @@ export interface TurnOrderUpdatedPayload {
 // Fog of war event payloads
 // ---------------------------------------------------------------------------
 
+/** Client request to create a new fog region. */
+export interface FogCreatePayload {
+  mapId: string;
+  name?: string;
+  points: { x: number; y: number }[];
+  revealed?: boolean;
+}
+
+/** Server broadcast when a fog region is created. */
+export interface FogCreatedPayload {
+  mapId: string;
+  region: {
+    id: string;
+    mapId: string;
+    name?: string;
+    points: { x: number; y: number }[];
+    revealed: boolean;
+  };
+  createdBy: string;
+}
+
 /** Payload for updating fog of war regions. */
 export interface FogUpdatePayload {
   mapId: string;
