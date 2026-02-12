@@ -83,7 +83,6 @@ export async function createRoom(input: CreateRoomBody, userId: string): Promise
       name: input.name,
       maxPlayers: input.maxPlayers,
       directorId: userId,
-      gameSystemId: input.gameSystemId ?? undefined,
       players: {
         create: {
           userId,
