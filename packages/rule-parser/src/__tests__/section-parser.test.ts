@@ -59,9 +59,13 @@ Deep content.
 Section content.`;
 
     const sections = parseSections(body);
-    expect(sections).toHaveLength(1);
-    expect(sections[0]!.title).toBe('First Section');
-    expect(sections[0]!.content).toContain('Section content');
+    // Pre-heading content now creates an implicit preamble section (level 0)
+    expect(sections).toHaveLength(2);
+    expect(sections[0]!.level).toBe(0);
+    expect(sections[0]!.title).toBe('');
+    expect(sections[0]!.content).toContain('Some preamble text');
+    expect(sections[1]!.title).toBe('First Section');
+    expect(sections[1]!.content).toContain('Section content');
   });
 
   it('returns empty array for empty content', () => {

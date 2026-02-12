@@ -31,8 +31,11 @@ export function parseFrontmatter(content: string): { frontmatter: Frontmatter; b
   const body = trimmed.slice(endIndex + 3).trim();
 
   try {
-    const parsed = parseYaml(yamlContent) as Record<string, unknown>;
-    const frontmatter = normalizeFrontmatter(parsed);
+    const parsed = parseYaml(yamlContent);
+    if (typeof parsed !== 'object' || parsed === null) {
+      return { frontmatter: createEmptyFrontmatter(), body };
+    }
+    const frontmatter = normalizeFrontmatter(parsed as Record<string, unknown>);
     return { frontmatter, body };
   } catch {
     return {

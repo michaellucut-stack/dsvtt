@@ -62,6 +62,9 @@ export {
   countAbilitiesByTab,
 } from './parsers/ability-classifier.js';
 
+// Shared utilities
+export { getEchelon, extractFirstHeading, cleanMarkdownCell } from './parsers/utils.js';
+
 // Character sheet templates
 export type {
   FieldSection,

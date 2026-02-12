@@ -6,6 +6,7 @@ import type {
   ParsedDocument,
 } from '../types.js';
 import { parseAbilitiesFromContent } from './ability-parser.js';
+import { getEchelon, extractFirstHeading, cleanMarkdownCell } from './utils.js';
 
 /**
  * Parses a creature stat block from a parsed document.
@@ -59,7 +60,7 @@ export function parseCreatureStatBlock(doc: ParsedDocument): CreatureStatBlock |
   const { immunities, weaknesses, movementTypes } = parseSpecialProperties(doc.rawContent);
 
   return {
-    name: statFm.item_name || extractNameFromContent(doc.rawContent),
+    name: statFm.item_name || extractFirstHeading(doc.rawContent, 'Unknown Creature'),
     level: statFm.level,
     echelon,
     ancestry: statFm.ancestry,
@@ -93,33 +94,11 @@ function parseStamina(stamina: string): number | string {
 }
 
 /**
- * Determines the echelon (1-4) from the creature level.
- * Draw Steel: 1st = levels 1-4, 2nd = 5-7, 3rd = 8-10, 4th = 11+
- */
-function getEchelon(level: number): number {
-  if (level <= 4) return 1;
-  if (level <= 7) return 2;
-  if (level <= 10) return 3;
-  return 4;
-}
-
-/**
  * Parses the encounter value (EV) from a string.
  */
 function parseEncounterValue(ev: string): number {
   const num = parseInt(ev, 10);
   return Number.isNaN(num) ? 0 : num;
-}
-
-/**
- * Extracts the creature name from the body content (first heading).
- */
-function extractNameFromContent(content: string): string {
-  const headingMatch = content.match(/^#{1,6}\s+(.+)$/m);
-  if (headingMatch?.[1] !== undefined) {
-    return headingMatch[1].replace(/\*\*/g, '').trim();
-  }
-  return 'Unknown Creature';
 }
 
 /**
@@ -149,16 +128,17 @@ function parseSpecialProperties(content: string): {
       weaknesses.push(...weaknessValues);
     }
 
-    if (
-      lowerLine.includes('fly') ||
-      lowerLine.includes('burrow') ||
-      lowerLine.includes('teleport') ||
-      lowerLine.includes('swim')
-    ) {
-      const movementMatch = line.match(/\b(Fly|Burrow|Teleport|Swim|Climb)\b/gi);
+    // Match movement types only in stat-block style lines (tables or labeled lines),
+    // not in prose descriptions. Look for "Speed X (Fly, Teleport)" patterns or
+    // standalone movement keywords preceded by a number or comma.
+    if (line.includes('|') || lowerLine.includes('speed')) {
+      const movementMatch = line.match(/\b(Fly|Burrow|Teleport|Swim|Climb)\s*\d*/gi);
       if (movementMatch) {
         movementTypes.push(
-          ...movementMatch.map((m) => m.charAt(0).toUpperCase() + m.slice(1).toLowerCase()),
+          ...movementMatch.map((m) => {
+            const word = m.trim().split(/\s/)[0]!;
+            return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+          }),
         );
       }
     }
@@ -182,10 +162,7 @@ function extractTableValues(line: string): string[] {
 
   const values: string[] = [];
   for (const cell of cells) {
-    const cleaned = cell
-      .replace(/\*\*/g, '')
-      .replace(/<br\s*\/?>/gi, ' ')
-      .trim();
+    const cleaned = cleanMarkdownCell(cell);
     if (cleaned && cleaned !== '-' && cleaned.length > 1) {
       values.push(cleaned);
     }

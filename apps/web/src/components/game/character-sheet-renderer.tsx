@@ -1,52 +1,7 @@
 'use client';
 
 import React, { useCallback, useMemo, useState } from 'react';
-
-// ── Template Types (matching rule-parser) ───────────────────────────────────
-
-type FieldSection =
-  | 'header'
-  | 'characteristics'
-  | 'combat'
-  | 'heroic_resource'
-  | 'skills'
-  | 'features'
-  | 'inventory'
-  | 'notes';
-
-type FieldType =
-  | 'text'
-  | 'number'
-  | 'select'
-  | 'multiselect'
-  | 'computed'
-  | 'boolean'
-  | 'textarea'
-  | 'resource';
-
-interface TemplateField {
-  id: string;
-  label: string;
-  section: FieldSection;
-  type: FieldType;
-  computedFrom?: string[];
-  defaultValue?: string | number | boolean;
-  options?: string[];
-  editable: boolean;
-  order: number;
-  width: string;
-  description?: string;
-  min?: number;
-  max?: number;
-}
-
-interface CharacterSheetTemplate {
-  gameSystemId: string;
-  gameSystemName: string;
-  version: string;
-  sectionOrder: Array<{ id: FieldSection; label: string }>;
-  fields: TemplateField[];
-}
+import type { FieldSection, TemplateField, CharacterSheetTemplate } from '@dsvtt/rule-parser';
 
 // ── Props ───────────────────────────────────────────────────────────────────
 
@@ -170,7 +125,6 @@ function SheetSection({
 }: SheetSectionProps) {
   // Use compact layout for characteristics
   const isCharacteristics = sectionId === 'characteristics';
-  const isCombat = sectionId === 'combat';
 
   return (
     <div className="sheet-section">
@@ -178,11 +132,7 @@ function SheetSection({
         {label}
       </h3>
 
-      <div
-        className={`grid gap-2 ${
-          isCharacteristics ? 'grid-cols-5' : isCombat ? 'grid-cols-4' : 'grid-cols-4'
-        }`}
-      >
+      <div className={`grid gap-2 ${isCharacteristics ? 'grid-cols-5' : 'grid-cols-4'}`}>
         {fields.map((field) => (
           <SheetField
             key={field.id}
@@ -424,6 +374,8 @@ function getWidthClass(width: string): string {
     case 'third':
       return 'col-span-1';
     case 'quarter':
+      return 'col-span-1';
+    case 'fifth':
       return 'col-span-1';
     default:
       return 'col-span-1';

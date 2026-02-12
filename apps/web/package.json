@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@dsvtt/events": "workspace:*",
+    "@dsvtt/rule-parser": "workspace:*",
     "@dsvtt/shared": "workspace:*",
     "next": "^14.2.15",
     "react": "^18.3.1",

@@ -20,8 +20,8 @@ export function parseSections(body: string): ParsedSection[] {
     const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
 
     if (headingMatch) {
-      // Flush current content to the top of the stack
-      flushContent(stack, currentContent);
+      // Flush current content to the top of the stack (or to root if pre-heading)
+      flushContent(stack, currentContent, rootSections);
       currentContent = [];
 
       const level = headingMatch[1]!.length;
@@ -62,7 +62,7 @@ export function parseSections(body: string): ParsedSection[] {
   }
 
   // Flush remaining content
-  flushContent(stack, currentContent);
+  flushContent(stack, currentContent, rootSections);
 
   // Post-process: extract abilities and tables from each section's content
   postProcessSections(rootSections);
@@ -72,8 +72,14 @@ export function parseSections(body: string): ParsedSection[] {
 
 /**
  * Flushes accumulated content lines to the current section on the stack.
+ * If the stack is empty (content before first heading), creates a root-level
+ * section to capture it rather than silently discarding.
  */
-function flushContent(stack: ParsedSection[], lines: string[]): void {
+function flushContent(
+  stack: ParsedSection[],
+  lines: string[],
+  rootSections?: ParsedSection[],
+): void {
   if (lines.length === 0) return;
 
   const content = lines.join('\n').trim();
@@ -84,6 +90,17 @@ function flushContent(stack: ParsedSection[], lines: string[]): void {
     if (current !== undefined) {
       current.content = current.content ? current.content + '\n' + content : content;
     }
+  } else if (rootSections) {
+    // Content before any heading: create an implicit root section
+    const preamble: ParsedSection = {
+      level: 0,
+      title: '',
+      content,
+      children: [],
+      abilities: [],
+      tables: [],
+    };
+    rootSections.push(preamble);
   }
 }
 

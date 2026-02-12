@@ -153,9 +153,12 @@ export function createDrawSteelStabilityConstraint(): Constraint {
         };
       }
 
-      // Movement is valid but reduced - store the effective distance
-      action.payload['effectiveDistance'] = effectiveDistance;
-      return { valid: true, reason: null };
+      // Movement is valid but reduced. The effective distance is communicated
+      // via the validation result reason, not by mutating the action payload.
+      return {
+        valid: true,
+        reason: `Forced movement reduced from ${forcedDistance} to ${effectiveDistance} by stability (${stability}).`,
+      };
     },
   };
 }

@@ -1,4 +1,5 @@
 import type { ParsedTable } from '../types.js';
+import { cleanMarkdownCell } from './utils.js';
 
 /**
  * Extracts markdown tables from content.
@@ -111,20 +112,10 @@ function parseTableCells(line: string): string[] {
     // Remove empty first and last cells from leading/trailing pipes
     if (i === 0 && trimmed === '') continue;
     if (i === rawCells.length - 1 && trimmed === '') continue;
-    cells.push(cleanCellContent(trimmed));
+    cells.push(cleanMarkdownCell(trimmed));
   }
 
   return cells;
-}
-
-/**
- * Cleans markdown formatting from a cell value.
- */
-function cleanCellContent(cell: string): string {
-  return cell
-    .replace(/\*\*/g, '')
-    .replace(/<br\s*\/?>/gi, ' ')
-    .trim();
 }
 
 /**

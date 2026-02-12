@@ -1,4 +1,5 @@
 import type { ParsedCondition, ParsedDocument } from '../types.js';
+import { extractFirstHeading } from './utils.js';
 
 /**
  * Parses a condition from a parsed document.
@@ -11,7 +12,8 @@ export function parseCondition(doc: ParsedDocument): ParsedCondition | null {
     return null;
   }
 
-  const name = doc.frontmatter.item_name || extractConditionName(doc.rawContent);
+  const name =
+    doc.frontmatter.item_name || extractFirstHeading(doc.rawContent, 'Unknown Condition');
   const description = extractConditionDescription(doc.rawContent);
   const mechanicalEffects = extractMechanicalEffects(description);
 
@@ -20,17 +22,6 @@ export function parseCondition(doc: ParsedDocument): ParsedCondition | null {
     description,
     mechanicalEffects,
   };
-}
-
-/**
- * Extracts the condition name from the first heading.
- */
-function extractConditionName(content: string): string {
-  const headingMatch = content.match(/^#{1,6}\s+(.+)$/m);
-  if (headingMatch?.[1] !== undefined) {
-    return headingMatch[1].replace(/\*\*/g, '').trim();
-  }
-  return 'Unknown Condition';
 }
 
 /**

@@ -302,15 +302,28 @@ function parsePowerRoll(lines: string[]): {
   return { characteristic: null, tiers: null };
 }
 
+/** Pre-compiled regex patterns for labeled field extraction. */
+const LABELED_FIELD_PATTERNS = new Map<string, RegExp>();
+
+function getLabeledFieldPattern(label: string): RegExp {
+  let pattern = LABELED_FIELD_PATTERNS.get(label);
+  if (!pattern) {
+    pattern = new RegExp(`\\*\\*${label}:\\*\\*\\s*(.+)`, 'i');
+    LABELED_FIELD_PATTERNS.set(label, pattern);
+  }
+  return pattern;
+}
+
 /**
  * Extracts a labeled field value (e.g., "**Effect:** some text").
  */
 function extractLabeledField(lines: string[], label: string): string | null {
+  const pattern = getLabeledFieldPattern(label);
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (line === undefined) continue;
 
-    const pattern = new RegExp(`\\*\\*${label}:\\*\\*\\s*(.+)`, 'i');
     const match = line.match(pattern);
     if (match?.[1] !== undefined) {
       let value = match[1].trim();

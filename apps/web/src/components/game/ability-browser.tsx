@@ -1,31 +1,7 @@
 'use client';
 
 import React, { useMemo, useState, useCallback } from 'react';
-
-// ── Types matching rule-parser ──────────────────────────────────────────────
-
-type AbilityTab = 'actions' | 'maneuvers' | 'triggered';
-
-interface ClassifiedAbility {
-  name: string;
-  category: string;
-  actionType: string;
-  keywords: string[];
-  distance: string;
-  targets: string;
-  powerRollCharacteristic: string | null;
-  powerRollTiers: { low: string; mid: string; high: string } | null;
-  effect: string | null;
-  trigger: string | null;
-  special: string | null;
-  cost: string | null;
-  tab: AbilityTab;
-  sourceClass: string | null;
-  sourceAncestry: string | null;
-  sourceKit: string | null;
-  levelRequired: number;
-  isSignature: boolean;
-}
+import type { AbilityTab, ClassifiedAbility } from '@dsvtt/rule-parser';
 
 // ── Props ───────────────────────────────────────────────────────────────────
 
@@ -115,13 +91,19 @@ export function AbilityBrowser({
     [tabAbilities],
   );
 
-  const toggleAbility = useCallback((name: string) => {
+  const getAbilityKey = useCallback(
+    (ability: ClassifiedAbility) =>
+      `${ability.name}::${ability.sourceClass ?? ''}::${ability.levelRequired}`,
+    [],
+  );
+
+  const toggleAbility = useCallback((key: string) => {
     setExpandedAbilities((prev) => {
       const next = new Set(prev);
-      if (next.has(name)) {
-        next.delete(name);
+      if (next.has(key)) {
+        next.delete(key);
       } else {
-        next.add(name);
+        next.add(key);
       }
       return next;
     });
@@ -168,14 +150,17 @@ export function AbilityBrowser({
           </div>
         ) : (
           <div className="divide-y divide-gray-800">
-            {tabAbilities[activeTab].map((ability) => (
-              <AbilityCard
-                key={`${ability.name}-${ability.sourceClass}-${ability.levelRequired}`}
-                ability={ability}
-                isExpanded={expandedAbilities.has(ability.name)}
-                onToggle={() => toggleAbility(ability.name)}
-              />
-            ))}
+            {tabAbilities[activeTab].map((ability) => {
+              const key = getAbilityKey(ability);
+              return (
+                <AbilityCard
+                  key={key}
+                  ability={ability}
+                  isExpanded={expandedAbilities.has(key)}
+                  onToggle={() => toggleAbility(key)}
+                />
+              );
+            })}
           </div>
         )}
       </div>
@@ -224,7 +209,7 @@ function AbilityCard({ ability, isExpanded, onToggle }: AbilityCardProps) {
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="px-3 pb-3 space-y-2 bg-gray-850">
+        <div className="px-3 pb-3 space-y-2 bg-gray-900/80">
           {/* Action type and keywords */}
           <div className="flex gap-4 text-xs">
             <span className="text-gray-400">

@@ -275,3 +275,219 @@ describe('countAbilitiesByTab', () => {
     expect(counts.triggered).toBe(0);
   });
 });
+
+// ── Edge Case Tests ─────────────────────────────────────────────────────────
+
+describe('filterAbilities edge cases', () => {
+  // Shared abilities fixture for edge-case tests
+  const abilities: ClassifiedAbility[] = [
+    {
+      ...createAbility({ name: 'Holy Smite', actionType: 'Action', keywords: ['Attack', 'Magic'] }),
+      tab: 'actions',
+      sourceClass: 'Censor',
+      sourceAncestry: null,
+      sourceKit: null,
+      levelRequired: 1,
+      isSignature: true,
+    },
+    {
+      ...createAbility({ name: 'Shield Bash', actionType: 'Maneuver' }),
+      tab: 'maneuvers',
+      sourceClass: 'Censor',
+      sourceAncestry: null,
+      sourceKit: 'Sword and Board',
+      levelRequired: 1,
+      isSignature: false,
+    },
+    {
+      ...createAbility({
+        name: 'Retribution',
+        actionType: 'Triggered Action',
+        trigger: 'An ally is hit',
+      }),
+      tab: 'triggered',
+      sourceClass: 'Censor',
+      sourceAncestry: null,
+      sourceKit: null,
+      levelRequired: 3,
+      isSignature: false,
+    },
+    {
+      ...createAbility({ name: 'Fury Strike', actionType: 'Action' }),
+      tab: 'actions',
+      sourceClass: 'Fury',
+      sourceAncestry: null,
+      sourceKit: null,
+      levelRequired: 1,
+      isSignature: true,
+    },
+    {
+      ...createAbility({ name: 'Human Resolve', actionType: 'Action' }),
+      tab: 'actions',
+      sourceClass: null,
+      sourceAncestry: 'Human',
+      sourceKit: null,
+      levelRequired: 1,
+      isSignature: false,
+    },
+    {
+      ...createAbility({ name: 'Whirlwind', actionType: 'Action' }),
+      tab: 'actions',
+      sourceClass: 'Fury',
+      sourceAncestry: null,
+      sourceKit: 'Panther',
+      levelRequired: 5,
+      isSignature: false,
+    },
+  ];
+
+  it('filters by kit and matches only that kit', () => {
+    const result = filterAbilities(abilities, { kit: 'Sword and Board' });
+    expect(result).toHaveLength(1);
+    expect(result[0]!.name).toBe('Shield Bash');
+    expect(result[0]!.sourceKit).toBe('Sword and Board');
+  });
+
+  it('returns all abilities when search is an empty string', () => {
+    const result = filterAbilities(abilities, { search: '' });
+    expect(result).toHaveLength(abilities.length);
+  });
+
+  it('returns empty array when search matches nothing', () => {
+    const result = filterAbilities(abilities, { search: 'xyznonexistent' });
+    expect(result).toHaveLength(0);
+  });
+
+  it('applies multiple criteria (tab + className + maxLevel) — all must match', () => {
+    const result = filterAbilities(abilities, {
+      tab: 'actions',
+      className: 'Fury',
+      maxLevel: 3,
+    });
+    // Only Fury Strike (level 1, actions) qualifies; Whirlwind is level 5
+    expect(result).toHaveLength(1);
+    expect(result[0]!.name).toBe('Fury Strike');
+  });
+
+  it('filters by ancestry', () => {
+    const result = filterAbilities(abilities, { ancestry: 'Human' });
+    expect(result).toHaveLength(1);
+    expect(result[0]!.name).toBe('Human Resolve');
+    expect(result[0]!.sourceAncestry).toBe('Human');
+  });
+});
+
+describe('groupAbilitiesByTab edge cases', () => {
+  it('returns empty arrays for all tabs when given an empty array', () => {
+    const groups = groupAbilitiesByTab([]);
+    expect(groups).toEqual({ actions: [], maneuvers: [], triggered: [] });
+  });
+
+  it('places all abilities in the same tab when they share the same tab', () => {
+    const allActions: ClassifiedAbility[] = [
+      {
+        ...createAbility({ name: 'Strike' }),
+        tab: 'actions',
+        sourceClass: null,
+        sourceAncestry: null,
+        sourceKit: null,
+        levelRequired: 1,
+        isSignature: false,
+      },
+      {
+        ...createAbility({ name: 'Smash' }),
+        tab: 'actions',
+        sourceClass: null,
+        sourceAncestry: null,
+        sourceKit: null,
+        levelRequired: 2,
+        isSignature: false,
+      },
+      {
+        ...createAbility({ name: 'Cleave' }),
+        tab: 'actions',
+        sourceClass: null,
+        sourceAncestry: null,
+        sourceKit: null,
+        levelRequired: 3,
+        isSignature: false,
+      },
+    ];
+
+    const groups = groupAbilitiesByTab(allActions);
+    expect(groups.actions).toHaveLength(3);
+    expect(groups.maneuvers).toHaveLength(0);
+    expect(groups.triggered).toHaveLength(0);
+  });
+});
+
+describe('countAbilitiesByTab edge cases', () => {
+  it('returns zero for all tabs when given an empty array', () => {
+    const counts = countAbilitiesByTab([]);
+    expect(counts).toEqual({ actions: 0, maneuvers: 0, triggered: 0 });
+  });
+
+  it('returns correct counts for mixed abilities', () => {
+    const mixed: ClassifiedAbility[] = [
+      {
+        ...createAbility({ name: 'A1' }),
+        tab: 'actions',
+        sourceClass: null,
+        sourceAncestry: null,
+        sourceKit: null,
+        levelRequired: 1,
+        isSignature: false,
+      },
+      {
+        ...createAbility({ name: 'A2' }),
+        tab: 'actions',
+        sourceClass: null,
+        sourceAncestry: null,
+        sourceKit: null,
+        levelRequired: 1,
+        isSignature: false,
+      },
+      {
+        ...createAbility({ name: 'M1' }),
+        tab: 'maneuvers',
+        sourceClass: null,
+        sourceAncestry: null,
+        sourceKit: null,
+        levelRequired: 1,
+        isSignature: false,
+      },
+      {
+        ...createAbility({ name: 'T1' }),
+        tab: 'triggered',
+        sourceClass: null,
+        sourceAncestry: null,
+        sourceKit: null,
+        levelRequired: 1,
+        isSignature: false,
+      },
+      {
+        ...createAbility({ name: 'T2' }),
+        tab: 'triggered',
+        sourceClass: null,
+        sourceAncestry: null,
+        sourceKit: null,
+        levelRequired: 1,
+        isSignature: false,
+      },
+      {
+        ...createAbility({ name: 'T3' }),
+        tab: 'triggered',
+        sourceClass: null,
+        sourceAncestry: null,
+        sourceKit: null,
+        levelRequired: 1,
+        isSignature: false,
+      },
+    ];
+
+    const counts = countAbilitiesByTab(mixed);
+    expect(counts.actions).toBe(2);
+    expect(counts.maneuvers).toBe(1);
+    expect(counts.triggered).toBe(3);
+  });
+});

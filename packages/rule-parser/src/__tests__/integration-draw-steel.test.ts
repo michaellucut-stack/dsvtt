@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 
@@ -18,6 +18,20 @@ const MONSTERS_ROOT = path.join(GAME_RULES_ROOT, 'Bestiary', 'Monsters', 'Monste
 const hasGameRules = fs.existsSync(GAME_RULES_ROOT);
 
 describe.skipIf(!hasGameRules)('Integration: Draw Steel full game system load', () => {
+  // ── Shared loaded data (loaded once for all tests) ──────────────────────
+
+  let fullSystem: GameSystemData;
+  let rivalsSystem: GameSystemData;
+  let warDogsSystem: GameSystemData;
+  let griffonsSystem: GameSystemData;
+
+  beforeAll(() => {
+    fullSystem = loadGameSystem(GAME_RULES_ROOT, ['Rivals', 'War Dogs', 'Griffons']);
+    rivalsSystem = loadGameSystem(GAME_RULES_ROOT, ['Rivals']);
+    warDogsSystem = loadGameSystem(GAME_RULES_ROOT, ['War Dogs']);
+    griffonsSystem = loadGameSystem(GAME_RULES_ROOT, ['Griffons']);
+  });
+
   // ── Folder Validation ───────────────────────────────────────────────────
 
   describe('folder validation', () => {
@@ -52,40 +66,30 @@ describe.skipIf(!hasGameRules)('Integration: Draw Steel full game system load', 
   // ── Full System Load (filtered to 3 families) ──────────────────────────
 
   describe('game system loader', () => {
-    let system: GameSystemData;
-
     it('loads the game system with monster filter', () => {
-      system = loadGameSystem(GAME_RULES_ROOT, ['Rivals', 'War Dogs', 'Griffons']);
-
-      expect(system).toBeDefined();
-      expect(system.name).toBeTruthy();
-      expect(system.source).toBe('DRAW STEEL Creator License');
+      expect(fullSystem).toBeDefined();
+      expect(fullSystem.name).toBeTruthy();
+      expect(fullSystem.source).toBe('DRAW STEEL Creator License');
     });
 
     it('loads creatures from all three families', () => {
-      system = loadGameSystem(GAME_RULES_ROOT, ['Rivals', 'War Dogs', 'Griffons']);
-
-      expect(system.creatures.length).toBeGreaterThan(0);
+      expect(fullSystem.creatures.length).toBeGreaterThan(0);
 
       // Check that we have creatures from each family
-      const ancestries = new Set(system.creatures.flatMap((c) => c.ancestry));
+      const ancestries = new Set(fullSystem.creatures.flatMap((c) => c.ancestry));
       expect(ancestries.has('Rival')).toBe(true);
       expect(ancestries.has('War Dog')).toBe(true);
       expect(ancestries.has('Griffon')).toBe(true);
     });
 
     it('loads conditions', () => {
-      system = loadGameSystem(GAME_RULES_ROOT, ['Rivals', 'War Dogs', 'Griffons']);
-
       // Should have loaded conditions from Rules/Conditions/
-      expect(system.conditions.length).toBeGreaterThanOrEqual(0);
+      expect(fullSystem.conditions.length).toBeGreaterThanOrEqual(0);
     });
 
     it('loads combat rules', () => {
-      system = loadGameSystem(GAME_RULES_ROOT, ['Rivals', 'War Dogs', 'Griffons']);
-
       // May or may not have combat chapters depending on naming
-      expect(system.combatRules).toBeDefined();
+      expect(fullSystem.combatRules).toBeDefined();
     });
   });
 
@@ -94,18 +98,16 @@ describe.skipIf(!hasGameRules)('Integration: Draw Steel full game system load', 
   describe('Rivals family', () => {
     let rivals: CreatureStatBlock[];
 
-    it('loads Rival stat blocks across all echelons', () => {
-      const system = loadGameSystem(GAME_RULES_ROOT, ['Rivals']);
-      rivals = system.creatures.filter((c) => c.ancestry.includes('Rival'));
+    beforeAll(() => {
+      rivals = rivalsSystem.creatures.filter((c) => c.ancestry.includes('Rival'));
+    });
 
+    it('loads Rival stat blocks across all echelons', () => {
       // 7 monster types x 4 echelons = 28 stat blocks
       expect(rivals.length).toBe(28);
     });
 
     it('has correct echelon distribution', () => {
-      const system = loadGameSystem(GAME_RULES_ROOT, ['Rivals']);
-      rivals = system.creatures.filter((c) => c.ancestry.includes('Rival'));
-
       const byEchelon = new Map<number, CreatureStatBlock[]>();
       for (const r of rivals) {
         const list = byEchelon.get(r.echelon) ?? [];
@@ -126,8 +128,7 @@ describe.skipIf(!hasGameRules)('Integration: Draw Steel full game system load', 
     });
 
     it('parses all Rival stat block fields correctly', () => {
-      const system = loadGameSystem(GAME_RULES_ROOT, ['Rivals']);
-      const fury = system.creatures.find((c) => c.name === 'Rival Fury' && c.echelon === 1);
+      const fury = rivalsSystem.creatures.find((c) => c.name === 'Rival Fury' && c.echelon === 1);
 
       expect(fury).toBeDefined();
       if (fury) {
@@ -156,17 +157,17 @@ describe.skipIf(!hasGameRules)('Integration: Draw Steel full game system load', 
   describe('War Dogs family', () => {
     let warDogs: CreatureStatBlock[];
 
-    it('loads War Dog stat blocks', () => {
-      const system = loadGameSystem(GAME_RULES_ROOT, ['War Dogs']);
-      warDogs = system.creatures.filter((c) => c.ancestry.includes('War Dog'));
+    beforeAll(() => {
+      warDogs = warDogsSystem.creatures.filter((c) => c.ancestry.includes('War Dog'));
+    });
 
+    it('loads War Dog stat blocks', () => {
       // 45 statblock files in flat directory
       expect(warDogs.length).toBe(45);
     });
 
     it('includes named War Dog NPCs', () => {
-      const system = loadGameSystem(GAME_RULES_ROOT, ['War Dogs']);
-      const names = system.creatures.map((c) => c.name);
+      const names = warDogsSystem.creatures.map((c) => c.name);
 
       // Named NPCs from the War Dog family
       expect(names).toContain('Castellan Hoplon');
@@ -174,9 +175,6 @@ describe.skipIf(!hasGameRules)('Integration: Draw Steel full game system load', 
     });
 
     it('has varied roles across War Dogs', () => {
-      const system = loadGameSystem(GAME_RULES_ROOT, ['War Dogs']);
-      warDogs = system.creatures.filter((c) => c.ancestry.includes('War Dog'));
-
       const allRoles = new Set(warDogs.flatMap((c) => c.roles));
 
       // War Dogs should have diverse roles
@@ -184,12 +182,9 @@ describe.skipIf(!hasGameRules)('Integration: Draw Steel full game system load', 
     });
 
     it('handles EV field variations', () => {
-      const system = loadGameSystem(GAME_RULES_ROOT, ['War Dogs']);
-      warDogs = system.creatures;
-
       // Some War Dogs are minions with descriptive EV like "3 for four minions"
       // parseEncounterValue handles this by taking the leading number
-      for (const wd of warDogs) {
+      for (const wd of warDogsSystem.creatures) {
         expect(wd.encounterValue).toBeDefined();
         expect(typeof wd.encounterValue).toBe('number');
       }
@@ -200,24 +195,21 @@ describe.skipIf(!hasGameRules)('Integration: Draw Steel full game system load', 
 
   describe('Griffons family', () => {
     it('loads Griffon stat blocks', () => {
-      const system = loadGameSystem(GAME_RULES_ROOT, ['Griffons']);
-      const griffons = system.creatures.filter((c) => c.ancestry.includes('Griffon'));
+      const griffons = griffonsSystem.creatures.filter((c) => c.ancestry.includes('Griffon'));
 
       // 2 statblock files
       expect(griffons.length).toBe(2);
     });
 
     it('includes both Griffon variants', () => {
-      const system = loadGameSystem(GAME_RULES_ROOT, ['Griffons']);
-      const names = system.creatures.map((c) => c.name);
+      const names = griffonsSystem.creatures.map((c) => c.name);
 
       expect(names).toContain('Griffon');
       expect(names).toContain('Striped Condor Griffon');
     });
 
     it('parses Griffon stat block with mount role', () => {
-      const system = loadGameSystem(GAME_RULES_ROOT, ['Griffons']);
-      const griffon = system.creatures.find((c) => c.name === 'Griffon');
+      const griffon = griffonsSystem.creatures.find((c) => c.name === 'Griffon');
 
       expect(griffon).toBeDefined();
       if (griffon) {
@@ -230,13 +222,8 @@ describe.skipIf(!hasGameRules)('Integration: Draw Steel full game system load', 
   // ── Stat Block Consistency ─────────────────────────────────────────────
 
   describe('stat block consistency across all families', () => {
-    let allCreatures: CreatureStatBlock[];
-
     it('all creatures have required fields', () => {
-      const system = loadGameSystem(GAME_RULES_ROOT, ['Rivals', 'War Dogs', 'Griffons']);
-      allCreatures = system.creatures;
-
-      for (const creature of allCreatures) {
+      for (const creature of fullSystem.creatures) {
         expect(creature.name).toBeTruthy();
         expect(creature.level).toBeGreaterThan(0);
         expect(creature.echelon).toBeGreaterThanOrEqual(1);
@@ -250,9 +237,7 @@ describe.skipIf(!hasGameRules)('Integration: Draw Steel full game system load', 
     });
 
     it('all creatures have valid characteristic scores', () => {
-      const system = loadGameSystem(GAME_RULES_ROOT, ['Rivals', 'War Dogs', 'Griffons']);
-
-      for (const creature of system.creatures) {
+      for (const creature of fullSystem.creatures) {
         const chars = creature.characteristics;
         for (const [key, value] of Object.entries(chars)) {
           expect(typeof value).toBe('number');
@@ -268,9 +253,7 @@ describe.skipIf(!hasGameRules)('Integration: Draw Steel full game system load', 
 
   describe('ability classification on real creatures', () => {
     it('classifies abilities from loaded creatures into A/M/T tabs', () => {
-      const system = loadGameSystem(GAME_RULES_ROOT, ['Griffons']);
-
-      for (const creature of system.creatures) {
+      for (const creature of griffonsSystem.creatures) {
         const allAbilities = [
           ...creature.abilities,
           ...creature.villainActions,

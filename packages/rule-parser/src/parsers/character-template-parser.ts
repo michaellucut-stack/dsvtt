@@ -1,4 +1,4 @@
-import type { ParsedClass, ParsedAncestry } from '../types.js';
+import { getEchelon } from './utils.js';
 
 // ── Character Sheet Template Types ──────────────────────────────────────────
 
@@ -40,8 +40,8 @@ export interface TemplateField {
   editable: boolean;
   /** Display order within the section (lower = higher). */
   order: number;
-  /** Width hint: 'full', 'half', 'third', 'quarter'. */
-  width: 'full' | 'half' | 'third' | 'quarter';
+  /** Width hint: 'full', 'half', 'third', 'quarter', 'fifth'. */
+  width: 'full' | 'half' | 'third' | 'quarter' | 'fifth';
   /** Tooltip/description text. */
   description?: string;
   /** Min/max for number fields. */
@@ -211,7 +211,7 @@ export function generateDrawSteelTemplate(gameSystemId: string): CharacterSheetT
       defaultValue: 0,
       editable: true,
       order: 1,
-      width: 'fifth' as 'quarter',
+      width: 'fifth',
       description: 'Physical strength and power',
     },
     {
@@ -222,7 +222,7 @@ export function generateDrawSteelTemplate(gameSystemId: string): CharacterSheetT
       defaultValue: 0,
       editable: true,
       order: 2,
-      width: 'fifth' as 'quarter',
+      width: 'fifth',
       description: 'Speed, reflexes, and coordination',
     },
     {
@@ -233,7 +233,7 @@ export function generateDrawSteelTemplate(gameSystemId: string): CharacterSheetT
       defaultValue: 0,
       editable: true,
       order: 3,
-      width: 'fifth' as 'quarter',
+      width: 'fifth',
       description: 'Logic, knowledge, and analysis',
     },
     {
@@ -244,7 +244,7 @@ export function generateDrawSteelTemplate(gameSystemId: string): CharacterSheetT
       defaultValue: 0,
       editable: true,
       order: 4,
-      width: 'fifth' as 'quarter',
+      width: 'fifth',
       description: 'Awareness, empathy, and instinct',
     },
     {
@@ -255,7 +255,7 @@ export function generateDrawSteelTemplate(gameSystemId: string): CharacterSheetT
       defaultValue: 0,
       editable: true,
       order: 5,
-      width: 'fifth' as 'quarter',
+      width: 'fifth',
       description: 'Force of personality and willpower',
     },
 
@@ -613,10 +613,7 @@ export function computeFieldValue(
   switch (fieldId) {
     case 'echelon': {
       const level = (characterData['level'] as number) ?? 1;
-      if (level <= 4) return 1;
-      if (level <= 7) return 2;
-      if (level <= 10) return 3;
-      return 4;
+      return getEchelon(level);
     }
     case 'recoveryValue': {
       const maxStamina = (characterData['maxStamina'] as number) ?? 0;

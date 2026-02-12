@@ -14,6 +14,8 @@ export interface ValidationResult {
  * Validates a game action against the current state and rules.
  * Placeholder implementation — delegates to ConstraintEngine when a game system is loaded.
  *
+ * @deprecated Use `ConstraintEngine.evaluate()` instead. This placeholder always returns valid
+ * and will be removed in a future version.
  * @param _state - The current game state
  * @param _actionType - The type of action being attempted
  * @param _payload - The action payload data

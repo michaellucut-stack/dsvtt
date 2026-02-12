@@ -157,6 +157,9 @@ importers:
       '@dsvtt/events':
         specifier: workspace:*
         version: link:../../packages/events
+      '@dsvtt/rule-parser':
+        specifier: workspace:*
+        version: link:../../packages/rule-parser
       '@dsvtt/shared':
         specifier: workspace:*
         version: link:../../packages/shared

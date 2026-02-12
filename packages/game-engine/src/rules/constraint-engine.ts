@@ -226,22 +226,57 @@ export class ConstraintEngine {
 
   /**
    * Infers the constraint scope from an action type.
+   * Uses an explicit lookup table to avoid ambiguous substring matches.
    */
   private inferScope(actionType: string): ConstraintScope | null {
     const lower = actionType.toLowerCase();
 
-    if (lower.includes('move') || lower.includes('token_move')) return 'movement';
-    if (lower.includes('attack') || lower.includes('damage') || lower.includes('combat'))
-      return 'combat';
-    if (lower.includes('ability') || lower.includes('cast') || lower.includes('use'))
-      return 'ability_use';
-    if (lower.includes('turn') || lower.includes('action')) return 'action_economy';
-    if (lower.includes('condition')) return 'condition';
-    if (lower.includes('resource') || lower.includes('spend')) return 'resource';
+    // Exact match lookup (highest priority)
+    const exactMatch = SCOPE_EXACT_MAP.get(lower);
+    if (exactMatch) return exactMatch;
+
+    // Prefix-based matching (ordered by specificity, most specific first)
+    for (const [prefix, scope] of SCOPE_PREFIX_MAP) {
+      if (lower.startsWith(prefix)) return scope;
+    }
 
     return null; // Evaluate all constraints
   }
 }
+
+/**
+ * Explicit action type -> scope mapping for unambiguous resolution.
+ */
+const SCOPE_EXACT_MAP = new Map<string, ConstraintScope>([
+  ['token_move', 'movement'],
+  ['move', 'movement'],
+  ['forced_move', 'movement'],
+  ['turn_action', 'action_economy'],
+  ['end_turn', 'action_economy'],
+  ['start_turn', 'action_economy'],
+  ['use_ability', 'ability_use'],
+  ['cast_ability', 'ability_use'],
+  ['combat_attack', 'combat'],
+  ['attack', 'combat'],
+  ['damage', 'combat'],
+  ['apply_condition', 'condition'],
+  ['remove_condition', 'condition'],
+  ['spend_resource', 'resource'],
+  ['gain_resource', 'resource'],
+]);
+
+/**
+ * Prefix-based fallback for action types not in the exact map.
+ */
+const SCOPE_PREFIX_MAP: Array<[string, ConstraintScope]> = [
+  ['move', 'movement'],
+  ['turn', 'action_economy'],
+  ['combat', 'combat'],
+  ['attack', 'combat'],
+  ['ability', 'ability_use'],
+  ['condition', 'condition'],
+  ['resource', 'resource'],
+];
 
 // ── Built-in Constraint Factories ───────────────────────────────────────────
 

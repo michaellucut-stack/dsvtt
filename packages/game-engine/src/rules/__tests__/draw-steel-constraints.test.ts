@@ -194,7 +194,13 @@ describe('Draw Steel Constraints', () => {
 
       const result = engine.evaluate(state, action, context);
       expect(result.valid).toBe(true);
-      expect(action.payload['effectiveDistance']).toBe(3);
+      // Engine returns reason: null for valid results; individual constraint
+      // advisory info is not propagated (by design). Verify the constraint
+      // directly for the reduced-distance advisory message.
+      const constraint = createDrawSteelStabilityConstraint();
+      const directResult = constraint.evaluate(state, action, context);
+      expect(directResult.valid).toBe(true);
+      expect(directResult.reason).toContain('reduced from 5 to 3');
     });
   });
 

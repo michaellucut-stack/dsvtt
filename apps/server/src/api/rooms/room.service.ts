@@ -15,6 +15,7 @@ export interface RoomListItem {
   directorId: string;
   maxPlayers: number;
   playerCount: number;
+  gameSystemId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,7 +32,10 @@ export interface RoomDetail extends RoomListItem {
 }
 
 function serializeRoom(
-  room: Room & { _count?: { players: number }; players?: (RoomPlayer & { user: { displayName: string } })[] },
+  room: Room & {
+    _count?: { players: number };
+    players?: (RoomPlayer & { user: { displayName: string } })[];
+  },
 ): RoomListItem {
   return {
     id: room.id,
@@ -40,6 +44,7 @@ function serializeRoom(
     directorId: room.directorId,
     maxPlayers: room.maxPlayers,
     playerCount: room._count?.players ?? room.players?.length ?? 0,
+    gameSystemId: room.gameSystemId,
     createdAt: room.createdAt.toISOString(),
     updatedAt: room.updatedAt.toISOString(),
   };
@@ -72,15 +77,13 @@ function serializeRoomDetail(
  * @param userId - The authenticated user's ID.
  * @returns The newly created room with player list.
  */
-export async function createRoom(
-  input: CreateRoomBody,
-  userId: string,
-): Promise<RoomDetail> {
+export async function createRoom(input: CreateRoomBody, userId: string): Promise<RoomDetail> {
   const room = await prisma.room.create({
     data: {
       name: input.name,
       maxPlayers: input.maxPlayers,
       directorId: userId,
+      gameSystemId: input.gameSystemId ?? undefined,
       players: {
         create: {
           userId,
@@ -226,10 +229,7 @@ export async function joinRoom(
  * @returns An object indicating whether the room was ended.
  * @throws {AppError} 404 if the room or membership is not found.
  */
-export async function leaveRoom(
-  roomId: string,
-  userId: string,
-): Promise<{ roomEnded: boolean }> {
+export async function leaveRoom(roomId: string, userId: string): Promise<{ roomEnded: boolean }> {
   const room = await prisma.room.findUnique({
     where: { id: roomId },
   });
@@ -297,10 +297,7 @@ export async function deleteRoom(roomId: string, userId: string): Promise<void> 
  * @throws {AppError} 404 if the room does not exist.
  * @throws {AppError} 403 if the user is not the director.
  */
-export async function requireDirector(
-  roomId: string,
-  userId: string,
-): Promise<Room> {
+export async function requireDirector(roomId: string, userId: string): Promise<Room> {
   const room = await prisma.room.findUnique({
     where: { id: roomId },
   });
