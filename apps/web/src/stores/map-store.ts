@@ -300,11 +300,20 @@ export const useMapStore = create<MapState>()((set, get) => ({
   },
 
   updateGridDimensions(gridWidth: number, gridHeight: number) {
-    set((state) => {
-      if (!state.currentMap) return state;
-      return {
-        currentMap: { ...state.currentMap, gridWidth, gridHeight },
-      };
+    const { currentMap } = get();
+    if (!currentMap) return;
+
+    // Optimistic local update
+    set({
+      currentMap: { ...currentMap, gridWidth, gridHeight },
+    });
+
+    // Persist to server and broadcast to other clients via Socket.IO
+    const socket = getSocket();
+    socket.emit('MAP_UPDATE', {
+      mapId: currentMap.id,
+      gridWidth,
+      gridHeight,
     });
   },
 
