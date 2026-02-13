@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   useCharacterStore,
   type Character,
@@ -10,10 +10,43 @@ import {
 import { useAuthStore } from '@/stores/auth-store';
 import { Button } from '@/components/ui/button';
 import { DrawSteelWizard, type DrawSteelCharacterData } from '@/components/game/draw-steel-wizard';
+import { useMapStore } from '@/stores/map-store';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const DEBOUNCE_MS = 1_000;
+
+const TOKEN_PALETTE = [
+  '#c0392b',
+  '#e74c3c',
+  '#9b59b6',
+  '#8e44ad',
+  '#2980b9',
+  '#3498db',
+  '#1abc9c',
+  '#16a085',
+  '#27ae60',
+  '#2ecc71',
+  '#f39c12',
+  '#e67e22',
+  '#d35400',
+  '#e84393',
+  '#6c5ce7',
+  '#00b894',
+  '#fdcb6e',
+  '#e17055',
+  '#0984e3',
+  '#6ab04c',
+];
+
+/** Extract up to 2 initials from a name. E.g. "Goblin Scout" -> "GS", "Orc" -> "OR" */
+function getInitials(name: string): string {
+  const words = name.trim().split(/\s+/);
+  if (words.length >= 2) {
+    return ((words[0]?.[0] ?? '') + (words[1]?.[0] ?? '')).toUpperCase();
+  }
+  return name.trim().slice(0, 2).toUpperCase();
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -141,6 +174,134 @@ function CreateCharacterForm({ sessionId }: { sessionId: string }) {
             {submitting ? 'Creating...' : 'Create Draw Steel Character'}
           </Button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Token Setup Step ────────────────────────────────────────────────────────
+
+interface TokenSetupStepProps {
+  character: Character;
+  onDone: () => void;
+}
+
+function TokenSetupStep({ character, onDone }: TokenSetupStepProps) {
+  const [selectedColor, setSelectedColor] = useState<string>(TOKEN_PALETTE[0] ?? '#c0392b');
+  const [placing, setPlacing] = useState(false);
+  const addToken = useMapStore((s) => s.addToken);
+  const currentMap = useMapStore((s) => s.currentMap);
+
+  const initials = useMemo(() => getInitials(character.name), [character.name]);
+
+  const handlePlaceToken = () => {
+    if (!currentMap) return;
+    setPlacing(true);
+
+    // Place at grid center (roughly) so the token is visible
+    const centerX = Math.floor(currentMap.gridWidth / 2);
+    const centerY = Math.floor(currentMap.gridHeight / 2);
+
+    addToken({
+      mapId: currentMap.id,
+      name: character.name,
+      imageUrl: selectedColor,
+      x: centerX,
+      y: centerY,
+      width: 1,
+      height: 1,
+      layer: 'token',
+      visible: true,
+    });
+
+    // Small delay so the token gets created before we navigate away
+    setTimeout(() => {
+      setPlacing(false);
+      onDone();
+    }, 300);
+  };
+
+  return (
+    <div className="flex h-full flex-col items-center justify-center p-6">
+      <div className="w-full max-w-sm space-y-5 rounded-panel border border-charcoal-700/60 bg-charcoal-900/80 p-6 shadow-card">
+        {/* Header */}
+        <div className="text-center">
+          <h2 className="font-heading text-lg font-semibold text-parchment-100">
+            Choose Token Color
+          </h2>
+          <p className="mt-1 text-xs text-parchment-400">
+            Pick a color for {character.name}&apos;s map token
+          </p>
+        </div>
+
+        {/* Token Preview */}
+        <div className="flex justify-center">
+          <div
+            className="flex items-center justify-center rounded-full shadow-lg transition-colors duration-200"
+            style={{
+              width: 80,
+              height: 80,
+              backgroundColor: selectedColor,
+              border: '3px solid rgba(255, 204, 32, 0.6)',
+            }}
+          >
+            <span
+              className="text-xl font-bold text-white"
+              style={{ textShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
+            >
+              {initials}
+            </span>
+          </div>
+        </div>
+
+        {/* Color Palette Grid */}
+        <div className="grid grid-cols-5 gap-2">
+          {TOKEN_PALETTE.map((color) => (
+            <button
+              key={color}
+              type="button"
+              onClick={() => setSelectedColor(color)}
+              className="relative flex h-9 w-full items-center justify-center rounded-md border-2 transition-all duration-150 hover:scale-110"
+              style={{
+                backgroundColor: color,
+                borderColor: selectedColor === color ? '#ffcc20' : 'transparent',
+                boxShadow: selectedColor === color ? '0 0 8px rgba(255, 204, 32, 0.5)' : 'none',
+              }}
+              aria-label={`Select color ${color}`}
+            >
+              {selectedColor === color && (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div className="space-y-2">
+          <Button fullWidth disabled={placing || !currentMap} onClick={handlePlaceToken}>
+            {placing ? 'Placing...' : !currentMap ? 'No Map Loaded' : 'Place Token on Map'}
+          </Button>
+          <Button variant="ghost" fullWidth onClick={onDone}>
+            Skip
+          </Button>
+        </div>
+
+        {!currentMap && (
+          <p className="text-center text-[11px] text-parchment-500">
+            No map is loaded yet. You can skip and place your token later.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -475,6 +636,14 @@ export function CharacterSheet({ sessionId }: CharacterSheetProps) {
   const setMyCharacter = useCharacterStore((s) => s.setMyCharacter);
   const userId = useAuthStore((s) => s.user?.id);
 
+  // Track whether the token setup step has been completed (or skipped).
+  // `null` means we haven't determined yet; `true` means done; `false` means show setup.
+  const [tokenSetupDone, setTokenSetupDone] = useState<boolean | null>(null);
+
+  // When myCharacter is first detected from an existing session (auto-detect),
+  // skip the token setup since the character was created in a previous session/refresh.
+  const autoDetectedRef = useRef(false);
+
   // Auto-detect the current player's character from the list
   useEffect(() => {
     if (myCharacter) return;
@@ -482,12 +651,35 @@ export function CharacterSheet({ sessionId }: CharacterSheetProps) {
 
     const mine = characters.find((c) => c.userId === userId);
     if (mine) {
+      autoDetectedRef.current = true;
       setMyCharacter(mine);
     }
   }, [myCharacter, userId, characters, setMyCharacter]);
 
+  // When myCharacter becomes non-null, decide whether to show token setup.
+  // If auto-detected (existing character from refresh), skip token setup.
+  // If freshly created (not auto-detected), show token setup.
+  useEffect(() => {
+    if (!myCharacter) {
+      setTokenSetupDone(null);
+      return;
+    }
+
+    if (autoDetectedRef.current) {
+      // Character was already in the session — skip token setup
+      setTokenSetupDone(true);
+    } else if (tokenSetupDone === null) {
+      // Freshly created character — show token setup
+      setTokenSetupDone(false);
+    }
+  }, [myCharacter, tokenSetupDone]);
+
   if (!myCharacter) {
     return <CreateCharacterForm sessionId={sessionId} />;
+  }
+
+  if (tokenSetupDone === false) {
+    return <TokenSetupStep character={myCharacter} onDone={() => setTokenSetupDone(true)} />;
   }
 
   return <CharacterEditor character={myCharacter} />;

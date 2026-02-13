@@ -52,6 +52,18 @@ async function request<T>(method: string, path: string, options: RequestOptions 
   });
 
   if (!response.ok) {
+    // On 401 (token expired or invalid), clear auth state and redirect to login
+    if (response.status === 401) {
+      try {
+        localStorage.removeItem('auth-storage');
+      } catch {
+        /* ignore */
+      }
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login';
+      }
+    }
+
     let errorBody: unknown;
     try {
       errorBody = await response.json();

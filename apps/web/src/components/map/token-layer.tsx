@@ -94,7 +94,10 @@ function TokenShapeInner({
   const centerX = token.x * gridSize + radius;
   const centerY = token.y * gridSize + radius;
 
-  const fillColor = useMemo(() => getTokenColor(token.name), [token.name]);
+  const fillColor = useMemo(
+    () => (token.imageUrl?.startsWith('#') ? token.imageUrl : getTokenColor(token.name)),
+    [token.name, token.imageUrl],
+  );
   const initials = useMemo(() => getInitials(token.name), [token.name]);
 
   const handleDragEnd = useCallback(
