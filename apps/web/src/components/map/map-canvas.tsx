@@ -55,6 +55,9 @@ export function MapCanvas() {
   const paintedFogCells = useMapStore((s) => s.paintedFogCells);
   const addPaintedFogCell = useMapStore((s) => s.addPaintedFogCell);
   const removePaintedFogCell = useMapStore((s) => s.removePaintedFogCell);
+  const pendingTokenPlacement = useMapStore((s) => s.pendingTokenPlacement);
+  const completeTokenPlacement = useMapStore((s) => s.completeTokenPlacement);
+  const cancelTokenPlacement = useMapStore((s) => s.cancelTokenPlacement);
 
   // Auth/room state for role determination
   const userId = useAuthStore((s) => s.user?.id);
@@ -175,6 +178,24 @@ export function MapCanvas() {
         return;
       }
 
+      // Token placement mode: place the pending token at the clicked cell
+      if (tool === 'place-token' && pendingTokenPlacement) {
+        const stage = stageRef.current;
+        if (!stage) return;
+        const pointer = stage.getPointerPosition();
+        if (!pointer) return;
+
+        const gs = effectiveGridSizeRef.current;
+        const scale = viewport.scale;
+        const gridX = Math.floor((pointer.x - viewport.x) / scale / gs);
+        const gridY = Math.floor((pointer.y - viewport.y) / scale / gs);
+        const clampedX = Math.max(0, gridX);
+        const clampedY = Math.max(0, gridY);
+
+        completeTokenPlacement(clampedX, clampedY);
+        return;
+      }
+
       // If we're in click-to-move mode, move the token to the clicked cell
       if (movingToken) {
         const stage = stageRef.current;
@@ -208,14 +229,19 @@ export function MapCanvas() {
       paintedFogCells,
       addPaintedFogCell,
       removePaintedFogCell,
+      pendingTokenPlacement,
+      completeTokenPlacement,
     ],
   );
 
   // ── Stage draggable based on tool ─────────────────────────────────────
 
-  // Disable drag when in click-to-move mode or fog-paint mode so clicks land on the stage
+  // Disable drag when in click-to-move, fog-paint, or place-token mode so clicks land on the stage
   const isDraggable =
-    !movingToken && tool !== 'fog-paint' && (tool === 'move' || tool === 'select');
+    !movingToken &&
+    tool !== 'fog-paint' &&
+    tool !== 'place-token' &&
+    (tool === 'move' || tool === 'select');
 
   if (!currentMap) {
     return (
@@ -259,6 +285,20 @@ export function MapCanvas() {
       {isDirector && <TokenContextMenu />}
       {isDirector && <TokenDetailPanel />}
 
+      {/* Token placement indicator */}
+      {pendingTokenPlacement && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 rounded-panel border border-gold-500/40 bg-charcoal-900/90 px-4 py-2 text-xs text-gold-300 shadow-panel backdrop-blur-sm">
+          Click a square to place {pendingTokenPlacement.name} &mdash;{' '}
+          <button
+            type="button"
+            onClick={cancelTokenPlacement}
+            className="underline text-parchment-300 hover:text-parchment-100"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
       {/* Click-to-move indicator */}
       {movingToken && (
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 rounded-panel border border-cyan-500/40 bg-charcoal-900/90 px-4 py-2 text-xs text-cyan-300 shadow-panel backdrop-blur-sm">
@@ -291,11 +331,13 @@ export function MapCanvas() {
           style={{
             cursor: movingToken
               ? 'crosshair'
-              : tool === 'fog-paint'
+              : tool === 'place-token'
                 ? 'crosshair'
-                : tool === 'move'
-                  ? 'grab'
-                  : 'default',
+                : tool === 'fog-paint'
+                  ? 'crosshair'
+                  : tool === 'move'
+                    ? 'grab'
+                    : 'default',
           }}
         >
           {/* Layer 1: Background */}

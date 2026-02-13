@@ -517,3 +517,73 @@ export async function createFogRegion(
 export async function getMapState(mapId: string): Promise<MapState> {
   return getMapDetail(mapId);
 }
+
+/**
+ * Clone a map (with all tokens and fog regions) into a new session.
+ * The background image URL, grid settings, tokens, and fog regions are all
+ * copied to the new map. Token and fog-region IDs are regenerated.
+ *
+ * @param sourceMapId - The map to clone from.
+ * @param targetSessionId - The session to create the cloned map in.
+ * @returns The newly created map (serialised without relations).
+ * @throws {AppError} 404 if the source map does not exist.
+ */
+export async function cloneMap(sourceMapId: string, targetSessionId: string): Promise<MapListItem> {
+  const source = await prisma.gameMap.findUnique({
+    where: { id: sourceMapId },
+    include: {
+      tokens: true,
+      fogRegions: true,
+    },
+  });
+
+  if (!source) {
+    throw new AppError('Source map not found', 404, 'MAP_NOT_FOUND');
+  }
+
+  // Create the new map with the same settings
+  const newMap = await prisma.gameMap.create({
+    data: {
+      sessionId: targetSessionId,
+      name: source.name,
+      backgroundUrl: source.backgroundUrl,
+      gridWidth: source.gridWidth,
+      gridHeight: source.gridHeight,
+      gridSize: source.gridSize,
+    },
+  });
+
+  // Clone all tokens
+  if (source.tokens.length > 0) {
+    await prisma.token.createMany({
+      data: source.tokens.map((t) => ({
+        mapId: newMap.id,
+        ownerId: t.ownerId,
+        name: t.name,
+        imageUrl: t.imageUrl,
+        x: t.x,
+        y: t.y,
+        width: t.width,
+        height: t.height,
+        layer: t.layer,
+        visible: t.visible,
+      })),
+    });
+  }
+
+  // Clone all fog regions
+  if (source.fogRegions.length > 0) {
+    await prisma.fogRegion.createMany({
+      data: source.fogRegions.map((r) => ({
+        mapId: newMap.id,
+        ...((r as { name?: string | null }).name != null && {
+          name: (r as { name?: string | null }).name,
+        }),
+        points: r.points as Prisma.InputJsonValue,
+        revealed: r.revealed,
+      })),
+    });
+  }
+
+  return serializeMap(newMap);
+}

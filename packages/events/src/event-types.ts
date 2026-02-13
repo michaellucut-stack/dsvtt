@@ -229,7 +229,7 @@ export interface TurnChangedPayload {
 /** Server broadcast when turn order is updated. */
 export interface TurnOrderUpdatedPayload {
   sessionId: string;
-  order: { userId: string; initiative: number }[];
+  order: { userId: string; name: string; initiative: number; isNpc: boolean }[];
   roundNumber: number;
 }
 

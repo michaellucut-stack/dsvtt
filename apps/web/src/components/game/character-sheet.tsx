@@ -188,38 +188,79 @@ interface TokenSetupStepProps {
 
 function TokenSetupStep({ character, onDone }: TokenSetupStepProps) {
   const [selectedColor, setSelectedColor] = useState<string>(TOKEN_PALETTE[0] ?? '#c0392b');
-  const [placing, setPlacing] = useState(false);
-  const addToken = useMapStore((s) => s.addToken);
+  const [waitingForClick, setWaitingForClick] = useState(false);
+  const startTokenPlacement = useMapStore((s) => s.startTokenPlacement);
+  const cancelTokenPlacement = useMapStore((s) => s.cancelTokenPlacement);
   const currentMap = useMapStore((s) => s.currentMap);
+  const pendingTokenPlacement = useMapStore((s) => s.pendingTokenPlacement);
 
   const initials = useMemo(() => getInitials(character.name), [character.name]);
 
   const handlePlaceToken = () => {
     if (!currentMap) return;
-    setPlacing(true);
+    setWaitingForClick(true);
 
-    // Place at grid center (roughly) so the token is visible
-    const centerX = Math.floor(currentMap.gridWidth / 2);
-    const centerY = Math.floor(currentMap.gridHeight / 2);
-
-    addToken({
-      mapId: currentMap.id,
+    startTokenPlacement({
       name: character.name,
       imageUrl: selectedColor,
-      x: centerX,
-      y: centerY,
       width: 1,
       height: 1,
       layer: 'token',
       visible: true,
+      onPlaced: () => {
+        setWaitingForClick(false);
+        onDone();
+      },
     });
-
-    // Small delay so the token gets created before we navigate away
-    setTimeout(() => {
-      setPlacing(false);
-      onDone();
-    }, 300);
   };
+
+  const handleCancelPlacement = () => {
+    cancelTokenPlacement();
+    setWaitingForClick(false);
+  };
+
+  // If we were waiting but placement got cancelled externally (e.g. Escape key)
+  useEffect(() => {
+    if (waitingForClick && !pendingTokenPlacement) {
+      setWaitingForClick(false);
+    }
+  }, [waitingForClick, pendingTokenPlacement]);
+
+  if (waitingForClick) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center p-6">
+        <div className="w-full max-w-sm space-y-4 rounded-panel border border-charcoal-700/60 bg-charcoal-900/80 p-6 shadow-card">
+          <div className="text-center">
+            <div
+              className="mx-auto mb-3 flex items-center justify-center rounded-full"
+              style={{
+                width: 56,
+                height: 56,
+                backgroundColor: selectedColor,
+                border: '2px solid rgba(255, 204, 32, 0.6)',
+              }}
+            >
+              <span
+                className="text-base font-bold text-white"
+                style={{ textShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
+              >
+                {initials}
+              </span>
+            </div>
+            <h2 className="font-heading text-lg font-semibold text-parchment-100">
+              Click on the Map
+            </h2>
+            <p className="mt-1 text-xs text-parchment-400">
+              Click any square on the map to place {character.name}&apos;s token
+            </p>
+          </div>
+          <Button variant="ghost" fullWidth onClick={handleCancelPlacement}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col items-center justify-center p-6">
@@ -289,8 +330,8 @@ function TokenSetupStep({ character, onDone }: TokenSetupStepProps) {
 
         {/* Actions */}
         <div className="space-y-2">
-          <Button fullWidth disabled={placing || !currentMap} onClick={handlePlaceToken}>
-            {placing ? 'Placing...' : !currentMap ? 'No Map Loaded' : 'Place Token on Map'}
+          <Button fullWidth disabled={!currentMap} onClick={handlePlaceToken}>
+            {!currentMap ? 'No Map Loaded' : 'Place Token on Map'}
           </Button>
           <Button variant="ghost" fullWidth onClick={onDone}>
             Skip

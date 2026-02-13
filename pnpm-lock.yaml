@@ -154,6 +154,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@dsvtt/dice-engine':
+        specifier: workspace:*
+        version: link:../../packages/dice-engine
       '@dsvtt/events':
         specifier: workspace:*
         version: link:../../packages/events

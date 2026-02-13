@@ -16,6 +16,7 @@ export interface RoomListItem {
   maxPlayers: number;
   playerCount: number;
   gameSystemId: string | null;
+  lastMapId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -45,6 +46,7 @@ function serializeRoom(
     maxPlayers: room.maxPlayers,
     playerCount: room._count?.players ?? room.players?.length ?? 0,
     gameSystemId: room.gameSystemId,
+    lastMapId: room.lastMapId,
     createdAt: room.createdAt.toISOString(),
     updatedAt: room.updatedAt.toISOString(),
   };

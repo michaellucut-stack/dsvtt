@@ -14,7 +14,7 @@ import type {
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-export type MapTool = 'select' | 'move' | 'fog' | 'fog-paint' | 'measure';
+export type MapTool = 'select' | 'move' | 'fog' | 'fog-paint' | 'place-token' | 'measure';
 
 /** Token context menu state. */
 export interface TokenContextMenu {
@@ -27,6 +27,18 @@ export interface TokenContextMenu {
 /** Token being moved via click-to-move (select token, click destination). */
 export interface MovingToken {
   tokenId: string;
+}
+
+/** Pending token placement data (everything except coordinates, which the user clicks to set). */
+export interface PendingTokenPlacement {
+  name: string;
+  imageUrl: string | null;
+  width: number;
+  height: number;
+  layer: TokenLayer;
+  visible: boolean;
+  /** Called after the token is successfully placed. */
+  onPlaced?: () => void;
 }
 
 export interface Viewport {
@@ -71,6 +83,8 @@ interface MapState {
   movingToken: MovingToken | null;
   /** Token being edited (shows detail panel). */
   editingTokenId: string | null;
+  /** Pending token placement awaiting a map click. */
+  pendingTokenPlacement: PendingTokenPlacement | null;
   /** Cells being painted for a new fog group (grid coordinates). */
   paintedFogCells: { x: number; y: number }[];
   /** Counter for auto-naming fog groups. */
@@ -136,6 +150,13 @@ interface MapState {
   /** Set the token being edited (detail panel). */
   setEditingToken: (tokenId: string | null) => void;
 
+  /** Start token placement mode. User clicks a map cell to place the token. */
+  startTokenPlacement: (placement: PendingTokenPlacement) => void;
+  /** Cancel token placement mode. */
+  cancelTokenPlacement: () => void;
+  /** Complete token placement at the given grid coordinates. */
+  completeTokenPlacement: (gridX: number, gridY: number) => void;
+
   /** Add a cell to the current fog painting session. */
   addPaintedFogCell: (x: number, y: number) => void;
   /** Remove a cell from the current fog painting session. */
@@ -184,6 +205,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   contextMenu: null,
   movingToken: null,
   editingTokenId: null,
+  pendingTokenPlacement: null,
   paintedFogCells: [],
   fogGroupCounter: 1,
   loading: false,
@@ -366,6 +388,49 @@ export const useMapStore = create<MapState>()((set, get) => ({
     set({ editingTokenId: tokenId, contextMenu: null });
   },
 
+  startTokenPlacement(placement: PendingTokenPlacement) {
+    set({ pendingTokenPlacement: placement, tool: 'place-token' });
+  },
+
+  cancelTokenPlacement() {
+    set({ pendingTokenPlacement: null, tool: 'select' });
+  },
+
+  completeTokenPlacement(gridX: number, gridY: number) {
+    const { currentMap, pendingTokenPlacement } = get();
+    if (!currentMap || !pendingTokenPlacement) return;
+
+    const socket = getSocket();
+    socket.emit(
+      'TOKEN_ADD',
+      {
+        mapId: currentMap.id,
+        name: pendingTokenPlacement.name,
+        imageUrl: pendingTokenPlacement.imageUrl,
+        x: gridX,
+        y: gridY,
+        width: pendingTokenPlacement.width,
+        height: pendingTokenPlacement.height,
+        layer: pendingTokenPlacement.layer,
+        visible: pendingTokenPlacement.visible,
+      },
+      (ack) => {
+        if (!ack.ok) {
+          set({ error: ack.error ?? 'Failed to place token' });
+        }
+      },
+    );
+
+    // Call onPlaced callback if provided
+    const onPlaced = pendingTokenPlacement.onPlaced;
+
+    set({ pendingTokenPlacement: null, tool: 'select' });
+
+    if (onPlaced) {
+      onPlaced();
+    }
+  },
+
   addPaintedFogCell(x: number, y: number) {
     set((state) => {
       if (state.paintedFogCells.some((c) => c.x === x && c.y === y)) return state;
@@ -421,6 +486,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
       selectedTokenId: null,
       tool: 'select',
       viewport: { x: 0, y: 0, scale: 1 },
+      pendingTokenPlacement: null,
       loading: false,
       error: null,
     });

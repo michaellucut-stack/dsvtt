@@ -2,6 +2,7 @@ import type { SessionStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma.js';
 import { AppError } from '../../middleware/error-handler.js';
 import { requireDirector } from '../rooms/room.service.js';
+import { cloneMap } from '../maps/map.service.js';
 
 // ---------------------------------------------------------------------------
 // Serialisation helpers
@@ -89,6 +90,12 @@ export async function startSession(roomId: string, userId: string): Promise<Sess
     return serializeSession(session);
   }
 
+  // Look up the room to check for a previous map to restore
+  const room = await prisma.room.findUnique({
+    where: { id: roomId },
+    select: { lastMapId: true },
+  });
+
   const [session] = await prisma.$transaction([
     prisma.gameSession.create({
       data: {
@@ -101,6 +108,17 @@ export async function startSession(roomId: string, userId: string): Promise<Sess
       data: { status: 'ACTIVE' },
     }),
   ]);
+
+  // If the room had a previous map, clone it into the new session so the
+  // director picks up where they left off (background, tokens, fog, grid).
+  if (room?.lastMapId) {
+    try {
+      await cloneMap(room.lastMapId, session.id);
+    } catch {
+      // Non-fatal — if the source map was deleted the session still works,
+      // the director just won't have the previous map pre-loaded.
+    }
+  }
 
   return serializeSession(session);
 }
@@ -213,29 +231,40 @@ export async function updateSessionStatus(
     updateData.endedAt = new Date();
   }
 
+  // When ending a session, save the first map's ID on the room so we can
+  // restore the map (with all tokens & fog) in the next session.
+  let lastMapId: string | undefined;
+  if (newStatus === 'ENDED') {
+    const firstMap = await prisma.gameMap.findFirst({
+      where: { sessionId },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    if (firstMap) {
+      lastMapId = firstMap.id;
+    }
+  }
+
+  const roomUpdateData: { status: 'ACTIVE' | 'PAUSED' | 'WAITING'; lastMapId?: string } =
+    newStatus === 'ACTIVE'
+      ? { status: 'ACTIVE' as const }
+      : newStatus === 'PAUSED'
+        ? { status: 'PAUSED' as const }
+        : { status: 'WAITING' as const };
+
+  if (lastMapId) {
+    roomUpdateData.lastMapId = lastMapId;
+  }
+
   const [updated] = await prisma.$transaction([
     prisma.gameSession.update({
       where: { id: sessionId },
       data: updateData,
     }),
-    // Update room status to match session lifecycle
-    ...(newStatus === 'ACTIVE'
-      ? [prisma.room.update({ where: { id: session.roomId }, data: { status: 'ACTIVE' as const } })]
-      : newStatus === 'PAUSED'
-        ? [
-            prisma.room.update({
-              where: { id: session.roomId },
-              data: { status: 'PAUSED' as const },
-            }),
-          ]
-        : newStatus === 'ENDED'
-          ? [
-              prisma.room.update({
-                where: { id: session.roomId },
-                data: { status: 'WAITING' as const },
-              }),
-            ]
-          : []),
+    prisma.room.update({
+      where: { id: session.roomId },
+      data: roomUpdateData,
+    }),
   ]);
 
   return serializeSession(updated);

@@ -26,25 +26,28 @@ export interface LoggedEvent {
 
 /**
  * Append a game event to the event log atomically.
- * Uses a transaction to increment the session's eventCount and assign
- * the next sequence number.
+ * Uses an interactive transaction with a row-level lock (SELECT ... FOR UPDATE)
+ * to prevent race conditions when concurrent events arrive for the same session.
  */
 export async function logEvent(params: LogEventParams): Promise<LoggedEvent> {
   const { sessionId, eventType, payload, actorId, actorType, metadata = {} } = params;
 
-  const session = await prisma.gameSession.findUnique({
-    where: { id: sessionId },
-    select: { eventCount: true },
-  });
+  const eventLog = await prisma.$transaction(async (tx) => {
+    // Lock the session row to serialize concurrent event writes
+    const rows = await tx.$queryRaw<{ eventCount: number }[]>`
+      SELECT "eventCount" FROM "game_sessions"
+      WHERE "id" = ${sessionId}::uuid
+      FOR UPDATE
+    `;
 
-  if (!session) {
-    throw new Error(`Session not found: ${sessionId}`);
-  }
+    const row = rows[0];
+    if (!row) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
 
-  const nextSeq = session.eventCount + 1;
+    const nextSeq = row.eventCount + 1;
 
-  const [eventLog] = await prisma.$transaction([
-    prisma.gameEventLog.create({
+    const created = await tx.gameEventLog.create({
       data: {
         sessionId,
         sequenceNumber: nextSeq,
@@ -54,12 +57,17 @@ export async function logEvent(params: LogEventParams): Promise<LoggedEvent> {
         actorType,
         metadata: metadata as unknown as Prisma.InputJsonValue,
       },
-    }),
-    prisma.gameSession.update({
+    });
+
+    await tx.gameSession.update({
       where: { id: sessionId },
-      data: { eventCount: { increment: 1 } },
-    }),
-  ]);
+      data: { eventCount: nextSeq },
+    });
+
+    return created;
+  });
+
+  const nextSeq = eventLog.sequenceNumber;
 
   logger.debug('Game event logged', {
     context: 'event-store',

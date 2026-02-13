@@ -1,9 +1,6 @@
 import { create } from 'zustand';
 import { getSocket, type TypedSocket } from '@/lib/socket';
-import type {
-  TurnChangedPayload,
-  TurnOrderUpdatedPayload,
-} from '@dsvtt/events';
+import type { TurnChangedPayload, TurnOrderUpdatedPayload } from '@dsvtt/events';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -85,9 +82,9 @@ export const useTurnStore = create<TurnState>()((set, get) => ({
     const handleTurnOrderUpdated = (payload: TurnOrderUpdatedPayload) => {
       const entries: TurnEntry[] = payload.order.map((o) => ({
         id: o.userId,
-        name: o.userId, // Server should provide name — fallback to ID.
+        name: o.name ?? o.userId,
         initiative: o.initiative,
-        isNpc: false,    // Server should indicate NPC status — default to false.
+        isNpc: o.isNpc ?? false,
       }));
 
       set({

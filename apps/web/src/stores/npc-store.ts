@@ -21,6 +21,26 @@ export interface Npc {
   updatedAt: string;
 }
 
+/** API returns stats as Record<string, unknown>; convert to NpcStat[] for the UI. */
+interface RawNpc extends Omit<Npc, 'stats'> {
+  stats: Record<string, unknown> | NpcStat[];
+}
+
+function normalizeNpc(raw: RawNpc): Npc {
+  let stats: NpcStat[];
+  if (Array.isArray(raw.stats)) {
+    stats = raw.stats;
+  } else if (raw.stats && typeof raw.stats === 'object') {
+    stats = Object.entries(raw.stats).map(([key, value]) => ({
+      key,
+      value: String(value ?? ''),
+    }));
+  } else {
+    stats = [];
+  }
+  return { ...raw, stats };
+}
+
 interface CreateNpcInput {
   sessionId: string;
   name: string;
@@ -84,10 +104,10 @@ export const useNpcStore = create<NpcState>()((set, get) => ({
   async fetchNpcs(sessionId: string) {
     set({ loading: true, error: null });
     try {
-      const res = await apiClient.get<{ ok: boolean; data: Npc[] }>(
+      const res = await apiClient.get<{ ok: boolean; data: RawNpc[] }>(
         `/api/sessions/${sessionId}/npcs`,
       );
-      set({ npcs: res.data, loading: false });
+      set({ npcs: res.data.map(normalizeNpc), loading: false });
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : 'Failed to fetch NPCs',
@@ -99,11 +119,20 @@ export const useNpcStore = create<NpcState>()((set, get) => ({
   async createNpc(input: CreateNpcInput) {
     set({ error: null });
     try {
-      const res = await apiClient.post<{ ok: boolean; data: Npc }>(
+      // Convert stats array to Record<string, string> for the API
+      const statsRecord: Record<string, string> = {};
+      if (input.stats) {
+        for (const s of input.stats) {
+          if (s.key.trim()) {
+            statsRecord[s.key.trim()] = s.value;
+          }
+        }
+      }
+      const res = await apiClient.post<{ ok: boolean; data: RawNpc }>(
         `/api/sessions/${input.sessionId}/npcs`,
-        input,
+        { name: input.name, stats: statsRecord, notes: input.notes },
       );
-      const npc = res.data;
+      const npc = normalizeNpc(res.data);
       set((state) => ({ npcs: [...state.npcs, npc] }));
       return npc;
     } catch (err) {
@@ -116,8 +145,19 @@ export const useNpcStore = create<NpcState>()((set, get) => ({
   async updateNpc(npcId: string, changes: UpdateNpcInput) {
     set({ error: null });
     try {
-      const res = await apiClient.patch<{ ok: boolean; data: Npc }>(`/api/npcs/${npcId}`, changes);
-      const updated = res.data;
+      // Convert stats array to Record if present
+      const body: Record<string, unknown> = { ...changes };
+      if (changes.stats) {
+        const statsRecord: Record<string, string> = {};
+        for (const s of changes.stats) {
+          if (s.key.trim()) {
+            statsRecord[s.key.trim()] = s.value;
+          }
+        }
+        body.stats = statsRecord;
+      }
+      const res = await apiClient.patch<{ ok: boolean; data: RawNpc }>(`/api/npcs/${npcId}`, body);
+      const updated = normalizeNpc(res.data);
       set((state) => ({
         npcs: state.npcs.map((n) => (n.id === npcId ? updated : n)),
         selectedNpc: state.selectedNpc?.id === npcId ? updated : state.selectedNpc,
@@ -147,10 +187,10 @@ export const useNpcStore = create<NpcState>()((set, get) => ({
   async assignToken(npcId: string, tokenId: string | null) {
     set({ error: null });
     try {
-      const res = await apiClient.patch<{ ok: boolean; data: Npc }>(`/api/npcs/${npcId}`, {
+      const res = await apiClient.patch<{ ok: boolean; data: RawNpc }>(`/api/npcs/${npcId}`, {
         tokenId,
       });
-      const updated = res.data;
+      const updated = normalizeNpc(res.data);
       set((state) => ({
         npcs: state.npcs.map((n) => (n.id === npcId ? updated : n)),
         selectedNpc: state.selectedNpc?.id === npcId ? updated : state.selectedNpc,

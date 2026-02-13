@@ -270,17 +270,23 @@ export function registerMapEvents(io: TypedServer, socket: TypedSocket): void {
 
       const { mapId, name, imageUrl, x, y, width, height, layer, visible } = parsed.data;
 
-      // Verify director status
-      const isDir = await isDirectorForMap(mapId, user.sub);
-      if (!isDir) {
-        callback({ ok: false, error: 'Only the director can add tokens' });
-        return;
-      }
-
       // Resolve room and verify socket is in the room
       const roomId = await getRoomIdForMap(mapId);
       if (!roomId || !isInRoom(socket, roomId)) {
         callback({ ok: false, error: 'Not in room' });
+        return;
+      }
+
+      // Players can add tokens on the 'token' layer (e.g. placing their
+      // character after creation). Other layers are director-only.
+      const role = await getMembershipForMap(mapId, user.sub);
+      if (!role) {
+        callback({ ok: false, error: 'Not a room member' });
+        return;
+      }
+
+      if (role !== 'DIRECTOR' && layer !== 'token') {
+        callback({ ok: false, error: 'Only the director can add tokens to this layer' });
         return;
       }
 
@@ -338,7 +344,7 @@ export function registerMapEvents(io: TypedServer, socket: TypedSocket): void {
             ownerId: user.sub,
           },
           actorId: user.sub,
-          actorType: 'DIRECTOR',
+          actorType: role,
         }).catch((err) =>
           logger.error('Event logging failed', { context: 'event-store', error: String(err) }),
         );

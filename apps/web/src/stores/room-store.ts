@@ -20,6 +20,8 @@ export interface Room {
   directorName?: string;
   maxPlayers: number;
   playerCount?: number;
+  /** ID of the last active map — used to restore map state across sessions. */
+  lastMapId?: string | null;
   players?: RoomPlayer[];
   createdAt: string;
   updatedAt: string;
@@ -145,15 +147,20 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
   async startGame(roomId: string, mapFile?: File) {
     set({ loading: true, error: null });
     try {
-      // 1. Create the session
+      const currentRoom = get().currentRoom;
+
+      // 1. Create the session. If the room has a lastMapId the server
+      //    automatically clones the previous map (with tokens, fog, grid).
       const sessionRes = await apiClient.post<{
         ok: boolean;
         data: { id: string };
       }>(`/api/rooms/${roomId}/sessions`);
       const sessionId = sessionRes.data.id;
 
-      // 2. If a map file was provided, create a map and upload the background
-      if (mapFile) {
+      // 2. Only create + upload a new map if a file was provided AND the
+      //    room does NOT have a previous map to restore.  When a lastMapId
+      //    exists the cloned map is already in the new session.
+      if (mapFile && !currentRoom?.lastMapId) {
         const mapRes = await apiClient.post<{
           ok: boolean;
           data: { id: string };
@@ -167,7 +174,6 @@ export const useRoomStore = create<RoomState>()((set, get) => ({
 
       // Store the session ID and optimistically update room status
       set({ activeSessionId: sessionId });
-      const currentRoom = get().currentRoom;
       if (currentRoom?.id === roomId) {
         set({ currentRoom: { ...currentRoom, status: 'ACTIVE' as RoomStatus } });
       }

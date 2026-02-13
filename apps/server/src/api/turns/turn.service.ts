@@ -120,10 +120,7 @@ async function requireSession(sessionId: string): Promise<string> {
  * @throws {AppError} 404 if session not found.
  * @throws {AppError} 403 if user is not the director.
  */
-export async function requireSessionDirector(
-  sessionId: string,
-  userId: string,
-): Promise<string> {
+export async function requireSessionDirector(sessionId: string, userId: string): Promise<string> {
   const session = await prisma.gameSession.findUnique({
     where: { id: sessionId },
     include: { room: { select: { id: true, directorId: true } } },
@@ -134,11 +131,7 @@ export async function requireSessionDirector(
   }
 
   if (session.room.directorId !== userId) {
-    throw new AppError(
-      'Only the director can manage turns',
-      403,
-      'TURN_NOT_DIRECTOR',
-    );
+    throw new AppError('Only the director can manage turns', 403, 'TURN_NOT_DIRECTOR');
   }
 
   return session.room.id;
@@ -186,6 +179,23 @@ export async function setTurnOrder(
 }
 
 /**
+ * Clear the turn order (end combat). Director only.
+ *
+ * @param sessionId - The game session ID.
+ * @param userId - The director's user ID.
+ * @throws {AppError} 404 if session not found, 403 if not director.
+ */
+export async function clearTurnOrder(sessionId: string, userId: string): Promise<void> {
+  await requireSessionDirector(sessionId, userId);
+
+  const manager = getManager(sessionId);
+  manager.setOrder([]);
+
+  // Persist asynchronously
+  void persistTurnEvent(sessionId, 'TURN_CLEARED', manager.getState(), userId);
+}
+
+/**
  * Advance to the next turn. Director only.
  *
  * @param sessionId - The game session ID.
@@ -194,21 +204,14 @@ export async function setTurnOrder(
  * @throws {AppError} 404 if session not found, 403 if not director.
  * @throws {AppError} 400 if no turn order is set.
  */
-export async function nextTurn(
-  sessionId: string,
-  userId: string,
-): Promise<TurnOrder> {
+export async function nextTurn(sessionId: string, userId: string): Promise<TurnOrder> {
   await requireSessionDirector(sessionId, userId);
 
   const manager = getManager(sessionId);
   const state = manager.getState();
 
   if (state.entries.length === 0) {
-    throw new AppError(
-      'No turn order has been set',
-      400,
-      'TURN_NO_ORDER',
-    );
+    throw new AppError('No turn order has been set', 400, 'TURN_NO_ORDER');
   }
 
   manager.nextTurn();
@@ -229,21 +232,14 @@ export async function nextTurn(
  * @throws {AppError} 404 if session not found, 403 if not director.
  * @throws {AppError} 400 if no turn order is set.
  */
-export async function skipTurn(
-  sessionId: string,
-  userId: string,
-): Promise<TurnOrder> {
+export async function skipTurn(sessionId: string, userId: string): Promise<TurnOrder> {
   await requireSessionDirector(sessionId, userId);
 
   const manager = getManager(sessionId);
   const state = manager.getState();
 
   if (state.entries.length === 0) {
-    throw new AppError(
-      'No turn order has been set',
-      400,
-      'TURN_NO_ORDER',
-    );
+    throw new AppError('No turn order has been set', 400, 'TURN_NO_ORDER');
   }
 
   const currentPlayerId = manager.getCurrentPlayerId();

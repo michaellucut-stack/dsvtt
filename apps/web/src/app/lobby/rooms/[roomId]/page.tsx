@@ -194,60 +194,87 @@ export default function RoomDetailPage() {
         </div>
       </div>
 
-      {/* Map upload — director only, before game starts */}
+      {/* Map section — director only, before game starts */}
       {isDirector && (currentRoom.status as string) === 'WAITING' && (
         <div className="mt-6 rounded-panel border border-charcoal-700/60 bg-charcoal-900/80 p-6 shadow-card backdrop-blur-sm">
           <h3 className="mb-3 font-heading text-base font-semibold text-parchment-100">
             Battle Map
           </h3>
-          <p className="mb-3 text-xs text-parchment-400">
-            Upload a map image (JPG or PNG) for this session.
-          </p>
-          <label
-            className={[
-              'flex cursor-pointer items-center gap-3 rounded-card border border-dashed px-4 py-3 transition-colors',
-              mapFile
-                ? 'border-gold-600/60 bg-gold-950/20 text-gold-400'
-                : 'border-charcoal-600 bg-charcoal-800/40 text-parchment-400 hover:border-charcoal-500 hover:text-parchment-300',
-            ].join(' ')}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-            <span className="text-sm font-medium">
-              {mapFile ? mapFile.name : 'Choose map image...'}
-            </span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".jpg,.jpeg,.png"
-              onChange={handleMapFileChange}
-              className="sr-only"
-            />
-          </label>
-          {mapFile && (
-            <button
-              type="button"
-              onClick={() => {
-                setMapFile(null);
-                if (fileInputRef.current) fileInputRef.current.value = '';
-              }}
-              className="mt-2 text-xs text-crimson-400 hover:text-crimson-300"
-            >
-              Remove
-            </button>
+
+          {currentRoom.lastMapId ? (
+            <>
+              <div className="flex items-center gap-2 rounded-card border border-gold-700/40 bg-gold-950/20 px-4 py-3">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="shrink-0 text-gold-500"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span className="text-sm text-parchment-200">
+                  Previous map will be restored with all tokens and fog.
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mb-3 text-xs text-parchment-400">
+                Upload a map image (JPG or PNG) for this session.
+              </p>
+              <label
+                className={[
+                  'flex cursor-pointer items-center gap-3 rounded-card border border-dashed px-4 py-3 transition-colors',
+                  mapFile
+                    ? 'border-gold-600/60 bg-gold-950/20 text-gold-400'
+                    : 'border-charcoal-600 bg-charcoal-800/40 text-parchment-400 hover:border-charcoal-500 hover:text-parchment-300',
+                ].join(' ')}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                <span className="text-sm font-medium">
+                  {mapFile ? mapFile.name : 'Choose map image...'}
+                </span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".jpg,.jpeg,.png"
+                  onChange={handleMapFileChange}
+                  className="sr-only"
+                />
+              </label>
+              {mapFile && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMapFile(null);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                  className="mt-2 text-xs text-crimson-400 hover:text-crimson-300"
+                >
+                  Remove
+                </button>
+              )}
+            </>
           )}
         </div>
       )}

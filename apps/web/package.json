@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@dsvtt/dice-engine": "workspace:*",
     "@dsvtt/events": "workspace:*",
     "@dsvtt/rule-parser": "workspace:*",
     "@dsvtt/shared": "workspace:*",
